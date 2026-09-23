@@ -31,6 +31,7 @@ class ItemComplete(BaseModel):
 
 class ItemResponse(BaseModel):
     id: int
+    user_id: int
     raw_text: str
     category: Optional[CategoryType] = None
     priority: Optional[int] = None
@@ -80,6 +81,7 @@ class RoutineBlockUpdate(BaseModel):
 
 class RoutineBlockResponse(BaseModel):
     id: int
+    user_id: int
     day_of_week: int
     start_time: dt.time
     end_time: dt.time
@@ -121,6 +123,7 @@ class UserPrefsResponse(BaseModel):
 
 class ScheduleSlotResponse(BaseModel):
     id: int
+    user_id: int
     item_id: Optional[int] = None
     date: dt.date
     start_time: dt.time
@@ -186,4 +189,75 @@ class SuggestionActionResponse(BaseModel):
     status: str
     item_id: int
     action: str
+
+
+# --- User & Auth Schemas ---
+
+UserRole = Literal["ADMIN", "USER"]
+UserStatus = Literal["ACTIVE", "DISABLED"]
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    role: UserRole
+    status: UserStatus
+    must_change_password: bool = False
+    last_login: Optional[dt.datetime] = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255, description="User email address")
+    role: UserRole = Field("USER", description="User role: ADMIN or USER")
+    temporary_password: Optional[str] = Field(
+        None,
+        min_length=8,
+        description="Optional initial password. If omitted, a secure temporary password is generated.",
+    )
+
+
+class UserCreateResponse(UserResponse):
+    initial_password: Optional[str] = Field(
+        None,
+        description="Returned only upon initial creation to present to admin/user",
+    )
+
+
+class UserUpdateStatus(BaseModel):
+    status: UserStatus = Field(..., description="ACTIVE or DISABLED")
+
+
+class UserResetPassword(BaseModel):
+    new_password: Optional[str] = Field(
+        None,
+        min_length=8,
+        description="Optional new password. If omitted, a secure temporary password is generated.",
+    )
+
+
+class UserResetPasswordResponse(BaseModel):
+    status: str = "success"
+    user_id: int
+    temporary_password: str
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., min_length=1, description="Account email or username")
+    password: str = Field(..., min_length=1, description="Account password")
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, description="New password, minimum 8 characters")
+
 

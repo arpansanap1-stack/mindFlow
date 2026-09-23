@@ -7,6 +7,9 @@ import TimelineView from './components/TimelineView';
 import ItemEditModal from './components/ItemEditModal';
 import CompleteModal from './components/CompleteModal';
 import NowSuggestionWidget from './components/NowSuggestionWidget';
+import LoginPage from './components/LoginPage';
+import AdminDashboard from './components/AdminDashboard';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import {
   fetchItems,
   createItem,
@@ -15,10 +18,18 @@ import {
   completeItem,
   checkHealth,
 } from './api/items';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import {
+  getToken,
+  getMe,
+  logout,
+  onUnauthorized,
+} from './api/auth';
+import { AlertCircle, CheckCircle2, X, Loader2 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'schedule', 'routine'
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'schedule', 'routine', 'admin'
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('inbox');
@@ -27,15 +38,47 @@ export default function App() {
   const [completingItem, setCompletingItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const triggerSuggestionRefresh = () => setSuggestionRefreshKey((k) => k + 1);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => {
       setToast((prev) => (prev?.message === message ? null : prev));
     }, 3500);
-  };
+  }, []);
+
+  // Listen to 401 unauthorized events from any API call
+  useEffect(() => {
+    const unsubscribe = onUnauthorized(() => {
+      setCurrentUser(null);
+      setItems([]);
+      showToast('Session expired. Please sign in again.', 'error');
+    });
+    return unsubscribe;
+  }, [showToast]);
+
+  // Check auth status on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = getToken();
+      if (!token) {
+        setIsAuthChecking(false);
+        return;
+      }
+      try {
+        const user = await getMe();
+        setCurrentUser(user);
+      } catch (err) {
+        console.warn('Initial auth check failed:', err);
+        setCurrentUser(null);
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+    initAuth();
+  }, []);
 
   // Check backend health
   const checkStatus = useCallback(async () => {
@@ -49,6 +92,7 @@ export default function App() {
 
   // Fetch items from backend
   const loadItems = useCallback(async () => {
+    if (!currentUser) return;
     setIsLoading(true);
     try {
       const data = await fetchItems(statusFilter);
@@ -61,17 +105,23 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [currentUser, statusFilter, showToast]);
 
   useEffect(() => {
     checkStatus();
-    loadItems();
     const interval = setInterval(checkStatus, 15000);
     return () => clearInterval(interval);
-  }, [checkStatus, loadItems]);
+  }, [checkStatus]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadItems();
+    }
+  }, [currentUser, loadItems]);
 
   // Auto-refresh in place when an item is in "classifying..." state (SPEC 1.5)
   useEffect(() => {
+    if (!currentUser) return;
     const hasUnclassified = items.some(
       (i) => i.category === null && i.status === 'inbox'
     );
@@ -87,13 +137,28 @@ export default function App() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [items, statusFilter]);
+  }, [currentUser, items, statusFilter]);
 
-  // Capture item (with auto-classification from Step 3)
+  // Handle Login Success
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setActiveTab('inbox');
+    showToast(`Welcome back, ${user.email}!`);
+  };
+
+  // Handle Sign Out
+  const handleLogout = async () => {
+    await logout();
+    setCurrentUser(null);
+    setItems([]);
+    setActiveTab('inbox');
+    showToast('Signed out successfully');
+  };
+
+  // Capture item (with auto-classification)
   const handleCapture = async (rawText) => {
     try {
       const newItem = await createItem(rawText);
-      // Prepend to items list if viewing inbox or all
       if (statusFilter === 'inbox' || statusFilter === null) {
         setItems((prev) => [newItem, ...prev]);
       }
@@ -108,7 +173,6 @@ export default function App() {
   // Complete item prompt
   const handlePromptComplete = (item) => {
     if (item.status === 'done') {
-      // Toggle back to inbox if already done
       handleUpdateItem(item.id, { status: 'inbox' });
     } else {
       setCompletingItem(item);
@@ -161,61 +225,114 @@ export default function App() {
     }
   };
 
+  // Loading initial auth state
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          <span className="text-xs font-medium">Loading MindFlow...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in -> Render Login Page
+  if (!currentUser) {
+    return (
+      <>
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+                toast.type === 'error'
+                  ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-900'
+                  : 'bg-slate-900 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-slate-200'
+              }`}
+            >
+              {toast.type === 'error' ? (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+              )}
+              <span>{toast.message}</span>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Header
         isOnline={isOnline}
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={(tab) => {
+          if (tab === 'admin' && currentUser.role !== 'ADMIN') return;
+          setActiveTab(tab);
+        }}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onChangePassword={() => setIsChangePasswordOpen(true)}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
-        {/* Prominent "What should I do now?" Banner / Widget (SPEC 1.8 & 1.9 Step 8) */}
-        <section aria-label="What should I do now? Area">
-          <NowSuggestionWidget
-            onCompleteItem={handlePromptComplete}
-            onToast={showToast}
-            refreshTrigger={suggestionRefreshKey}
-          />
-        </section>
-
-        {activeTab === 'inbox' && (
+        {/* Admin Dashboard Tab */}
+        {activeTab === 'admin' && currentUser.role === 'ADMIN' ? (
+          <section aria-label="Administrator Dashboard">
+            <AdminDashboard currentUser={currentUser} onToast={showToast} />
+          </section>
+        ) : (
           <>
-
-            {/* Capture Bar (Feature 1) */}
-            <section aria-label="Quick Capture Area">
-              <CaptureBar onCapture={handleCapture} isLoading={isLoading} />
-            </section>
-
-            {/* Smart Inbox (Feature 3) */}
-            <section aria-label="Smart Inbox Area">
-              <SmartInbox
-                items={items}
-                isLoading={isLoading}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
+            {/* Prominent "What should I do now?" Banner / Widget */}
+            <section aria-label="What should I do now? Area">
+              <NowSuggestionWidget
                 onCompleteItem={handlePromptComplete}
-                onEditItem={(item) => setEditingItem(item)}
-                onDeleteItem={handleDeleteItem}
+                onToast={showToast}
+                refreshTrigger={suggestionRefreshKey}
               />
             </section>
+
+            {activeTab === 'inbox' && (
+              <>
+                {/* Capture Bar */}
+                <section aria-label="Quick Capture Area">
+                  <CaptureBar onCapture={handleCapture} isLoading={isLoading} />
+                </section>
+
+                {/* Smart Inbox */}
+                <section aria-label="Smart Inbox Area">
+                  <SmartInbox
+                    items={items}
+                    isLoading={isLoading}
+                    statusFilter={statusFilter}
+                    setStatusFilter={setStatusFilter}
+                    onCompleteItem={handlePromptComplete}
+                    onEditItem={(item) => setEditingItem(item)}
+                    onDeleteItem={handleDeleteItem}
+                  />
+                </section>
+              </>
+            )}
+
+            {activeTab === 'schedule' && (
+              <section aria-label="Day Schedule Area">
+                <TimelineView
+                  onCompleteItem={handlePromptComplete}
+                  onToast={showToast}
+                />
+              </section>
+            )}
+
+            {activeTab === 'routine' && (
+              <section aria-label="Routine Profile Area">
+                <RoutineProfile onToast={showToast} />
+              </section>
+            )}
           </>
-        )}
-
-        {activeTab === 'schedule' && (
-          <section aria-label="Day Schedule Area">
-            <TimelineView
-              onCompleteItem={handlePromptComplete}
-              onToast={showToast}
-            />
-          </section>
-        )}
-
-        {activeTab === 'routine' && (
-          <section aria-label="Routine Profile Area">
-            <RoutineProfile onToast={showToast} />
-          </section>
         )}
       </main>
 
@@ -233,6 +350,27 @@ export default function App() {
         isOpen={Boolean(completingItem)}
         onClose={() => setCompletingItem(null)}
         onConfirm={handleConfirmComplete}
+      />
+
+      {/* Mandatory Password Change Modal (on first login or after admin reset) */}
+      <ChangePasswordModal
+        isOpen={Boolean(currentUser?.must_change_password)}
+        isMandatory={true}
+        onSuccess={() => {
+          setCurrentUser((prev) => ({ ...prev, must_change_password: false }));
+          showToast('Password changed successfully! You may now proceed.');
+        }}
+      />
+
+      {/* Voluntary Password Change Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen && !currentUser?.must_change_password}
+        isMandatory={false}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => {
+          setIsChangePasswordOpen(false);
+          showToast('Password updated successfully!');
+        }}
       />
 
       {/* Toast feedback */}

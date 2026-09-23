@@ -1,8 +1,8 @@
 import json
 from datetime import datetime, timezone, date
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy.orm import Session, joinedload
-from app.models import Item, FeedbackLog, RoutineBlock, UserPrefs, ScheduleSlot
+from app.models import User, Item, FeedbackLog, RoutineBlock, UserPrefs, ScheduleSlot
 from app.schemas import (
     ItemCreate,
     ItemUpdate,
@@ -19,6 +19,7 @@ from app.schemas import (
     NowSuggestionResponse,
     SuggestionActionResponse,
     RoutineBlockResponse,
+    UserCreate,
 )
 from app.feedback.learning import FeedbackSample, compute_multipliers
 from app.config import settings
@@ -40,11 +41,132 @@ from app.scheduler.suggest import (
 )
 
 
-# --- Items CRUD ---
+# --- User Management CRUD ---
+
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    """Retrieve user by normalized lowercase email."""
+    return db.query(User).filter(User.email == email.strip().lower()).first()
+
+
+def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
+    """Retrieve user by primary key."""
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def list_users(
+    db: Session,
+    query: Optional[str] = None,
+    role: Optional[str] = None,
+    status: Optional[str] = None,
+) -> List[User]:
+    """List users for admin dashboard with optional filtering."""
+    q = db.query(User)
+    if query:
+        term = f"%{query.strip().lower()}%"
+        q = q.filter(User.email.ilike(term))
+    if role:
+        q = q.filter(User.role == role)
+    if status:
+        q = q.filter(User.status == status)
+    return q.order_by(User.created_at.desc(), User.id.desc()).all()
+
+
+def create_user(
+    db: Session,
+    user_in: UserCreate,
+    hashed_password: str,
+    must_change_password: bool = True,
+) -> User:
+    """Create a new user account managed by admin."""
+    user = User(
+        email=user_in.email.strip().lower(),
+        password_hash=hashed_password,
+        role=user_in.role,
+        status="ACTIVE",
+        must_change_password=must_change_password,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Initialize default user preferences
+    get_or_create_user_prefs(db, user_id=user.id)
+    return user
+
+
+def update_user_status(db: Session, user_id: int, status: str) -> Optional[User]:
+    """Enable or disable a user account."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return None
+    user.status = status
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user_password(
+    db: Session,
+    user_id: int,
+    password_hash: str,
+    must_change_password: bool = False,
+) -> Optional[User]:
+    """Update user password and must_change_password flag."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return None
+    user.password_hash = password_hash
+    user.must_change_password = must_change_password
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def delete_user(db: Session, user_id: int) -> bool:
+    """Delete a user account and cascade delete all their data."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return False
+    db.delete(user)
+    db.commit()
+    return True
+
+
+def init_admin_user_if_needed(db: Session) -> Optional[User]:
+    """Bootstrap initial administrator if no users exist in the database."""
+    from app.auth import hash_password
+
+    first_user = db.query(User).first()
+    if first_user:
+        return first_user
+
+    admin_email = settings.INITIAL_ADMIN_EMAIL.strip().lower()
+    admin_password = settings.INITIAL_ADMIN_PASSWORD
+    hashed = hash_password(admin_password)
+
+    admin = User(
+        email=admin_email,
+        password_hash=hashed,
+        role="ADMIN",
+        status="ACTIVE",
+        must_change_password=True,
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+
+    get_or_create_user_prefs(db, user_id=admin.id)
+    return admin
+
+
+# --- Items CRUD (User-Scoped) ---
 
 def create_item_with_flag(
     db: Session,
     item_in: ItemCreate,
+    user_id: int = 1,
     allow_sync_llm: bool = False,
 ) -> Tuple[Item, bool]:
     # Run swappable classification pipeline
@@ -62,6 +184,7 @@ def create_item_with_flag(
     topic_tag = item_in.topic_tag if item_in.topic_tag is not None else classified.topic_tag
 
     item = Item(
+        user_id=user_id,
         raw_text=item_in.raw_text,
         category=category,
         priority=priority,
@@ -85,8 +208,8 @@ def create_item_with_flag(
     return item, needs_async_llm
 
 
-def create_item(db: Session, item_in: ItemCreate) -> Item:
-    item, _ = create_item_with_flag(db, item_in)
+def create_item(db: Session, item_in: ItemCreate, user_id: int = 1) -> Item:
+    item, _ = create_item_with_flag(db, item_in, user_id=user_id)
     return item
 
 
@@ -124,23 +247,35 @@ def async_classify_item(item_id: int, db: Optional[Session] = None) -> None:
 
 def get_items(
     db: Session,
+    user_id: int = 1,
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
 ) -> List[Item]:
-    query = db.query(Item)
+    query = db.query(Item).filter(Item.user_id == user_id)
     if status is not None:
         query = query.filter(Item.status == status)
     return query.order_by(Item.created_at.desc(), Item.id.desc()).offset(skip).limit(limit).all()
 
 
-def get_item(db: Session, item_id: int) -> Optional[Item]:
-    return db.query(Item).filter(Item.id == item_id).first()
+def get_item(db: Session, item_id: int, user_id: int = 1) -> Optional[Item]:
+    return db.query(Item).filter(Item.id == item_id, Item.user_id == user_id).first()
 
 
-def update_item(db: Session, item_id: int, item_in: ItemUpdate) -> Optional[Item]:
-    item = get_item(db, item_id)
-    if not item:
+def update_item(
+    db: Session,
+    item_id: int,
+    item_in: Optional[ItemUpdate] = None,
+    user_id: int = 1,
+    **kwargs,
+) -> Optional[Item]:
+    if item_in is None and "item_in" in kwargs:
+        item_in = kwargs["item_in"]
+    if "user_id" in kwargs:
+        user_id = kwargs["user_id"]
+
+    item = get_item(db, item_id, user_id=user_id)
+    if not item or item_in is None:
         return None
 
     update_data = item_in.model_dump(exclude_unset=True)
@@ -152,8 +287,8 @@ def update_item(db: Session, item_id: int, item_in: ItemUpdate) -> Optional[Item
     return item
 
 
-def delete_item(db: Session, item_id: int) -> bool:
-    item = get_item(db, item_id)
+def delete_item(db: Session, item_id: int, user_id: int = 1) -> bool:
+    item = get_item(db, item_id, user_id=user_id)
     if not item:
         return False
 
@@ -166,8 +301,13 @@ def complete_item(
     db: Session,
     item_id: int,
     complete_in: Optional[ItemComplete] = None,
+    user_id: int = 1,
+    **kwargs,
 ) -> Optional[Item]:
-    item = get_item(db, item_id)
+    if "user_id" in kwargs:
+        user_id = kwargs["user_id"]
+
+    item = get_item(db, item_id, user_id=user_id)
     if not item:
         return None
 
@@ -178,6 +318,7 @@ def complete_item(
     # If duration info is available (either estimated or actual), log feedback
     if actual_duration is not None or item.est_duration_min is not None:
         feedback = FeedbackLog(
+            user_id=user_id,
             item_id=item.id,
             estimated_duration=item.est_duration_min,
             actual_duration=actual_duration,
@@ -190,24 +331,26 @@ def complete_item(
     return item
 
 
-# --- Routine Blocks CRUD ---
+# --- Routine Blocks CRUD (User-Scoped) ---
 
 def get_routine_blocks(
     db: Session,
+    user_id: int = 1,
     day_of_week: Optional[int] = None,
 ) -> List[RoutineBlock]:
-    query = db.query(RoutineBlock)
+    query = db.query(RoutineBlock).filter(RoutineBlock.user_id == user_id)
     if day_of_week is not None:
         query = query.filter(RoutineBlock.day_of_week == day_of_week)
     return query.order_by(RoutineBlock.day_of_week.asc(), RoutineBlock.start_time.asc()).all()
 
 
-def get_routine_block(db: Session, block_id: int) -> Optional[RoutineBlock]:
-    return db.query(RoutineBlock).filter(RoutineBlock.id == block_id).first()
+def get_routine_block(db: Session, block_id: int, user_id: int = 1) -> Optional[RoutineBlock]:
+    return db.query(RoutineBlock).filter(RoutineBlock.id == block_id, RoutineBlock.user_id == user_id).first()
 
 
-def create_routine_block(db: Session, block_in: RoutineBlockCreate) -> RoutineBlock:
+def create_routine_block(db: Session, block_in: RoutineBlockCreate, user_id: int = 1) -> RoutineBlock:
     block = RoutineBlock(
+        user_id=user_id,
         day_of_week=block_in.day_of_week,
         start_time=block_in.start_time,
         end_time=block_in.end_time,
@@ -223,10 +366,17 @@ def create_routine_block(db: Session, block_in: RoutineBlockCreate) -> RoutineBl
 def update_routine_block(
     db: Session,
     block_id: int,
-    block_in: RoutineBlockUpdate,
+    block_in: Optional[RoutineBlockUpdate] = None,
+    user_id: int = 1,
+    **kwargs,
 ) -> Optional[RoutineBlock]:
-    block = get_routine_block(db, block_id)
-    if not block:
+    if "user_id" in kwargs:
+        user_id = kwargs["user_id"]
+    if block_in is None and "block_in" in kwargs:
+        block_in = kwargs["block_in"]
+
+    block = get_routine_block(db, block_id, user_id=user_id)
+    if not block or block_in is None:
         return None
 
     update_data = block_in.model_dump(exclude_unset=True)
@@ -243,8 +393,8 @@ def update_routine_block(
     return block
 
 
-def delete_routine_block(db: Session, block_id: int) -> bool:
-    block = get_routine_block(db, block_id)
+def delete_routine_block(db: Session, block_id: int, user_id: int = 1) -> bool:
+    block = get_routine_block(db, block_id, user_id=user_id)
     if not block:
         return False
 
@@ -253,7 +403,7 @@ def delete_routine_block(db: Session, block_id: int) -> bool:
     return True
 
 
-# --- User Preferences ---
+# --- User Preferences (User-Scoped) ---
 
 def _user_prefs_to_response(prefs: UserPrefs) -> UserPrefsResponse:
     preferred_deep_hours = []
@@ -322,29 +472,34 @@ def update_user_prefs(
     return _user_prefs_to_response(prefs)
 
 
-# --- Schedule CRUD & Orchestration ---
+# --- Schedule CRUD & Orchestration (User-Scoped) ---
 
-def get_schedule_slots(db: Session, slot_date: date) -> List[ScheduleSlot]:
+def get_schedule_slots(db: Session, user_id: int = 1, slot_date: Optional[date] = None) -> List[ScheduleSlot]:
     """Retrieve all slots for a given date, ordered by start time, joined with items."""
+    target_date = slot_date or date.today()
     return (
         db.query(ScheduleSlot)
         .options(joinedload(ScheduleSlot.item))
-        .filter(ScheduleSlot.date == slot_date)
+        .filter(ScheduleSlot.user_id == user_id, ScheduleSlot.date == target_date)
         .order_by(ScheduleSlot.start_time.asc())
         .all()
     )
 
 
-def run_reschedule_job(db: Session, current_date: date) -> int:
+def run_reschedule_job(db: Session, user_id: int = 1, current_date: Optional[date] = None) -> int:
     """
     SPEC 1.6 Reschedule job:
-    Any schedule_slots row from a past date whose item is not done → delete slot,
+    Any schedule_slots row from a past date whose item is not done -> delete slot,
     item reverts to 'inbox'.
     """
+    target_date = current_date or date.today()
     past_slots = (
         db.query(ScheduleSlot)
         .join(Item, ScheduleSlot.item_id == Item.id)
-        .filter(ScheduleSlot.date < current_date)
+        .filter(
+            ScheduleSlot.user_id == user_id,
+            ScheduleSlot.date < target_date,
+        )
         .all()
     )
 
@@ -359,37 +514,45 @@ def run_reschedule_job(db: Session, current_date: date) -> int:
         if s.item_id is not None
     ]
 
-    decision = evaluate_reschedule_job(current_date, status_list)
+    decision = evaluate_reschedule_job(target_date, status_list)
 
     if decision.slots_to_delete:
-        db.query(ScheduleSlot).filter(ScheduleSlot.id.in_(decision.slots_to_delete)).delete(
-            synchronize_session=False
-        )
+        db.query(ScheduleSlot).filter(
+            ScheduleSlot.user_id == user_id,
+            ScheduleSlot.id.in_(decision.slots_to_delete)
+        ).delete(synchronize_session=False)
     if decision.items_to_revert:
-        db.query(Item).filter(Item.id.in_(decision.items_to_revert)).update(
-            {"status": "inbox"}, synchronize_session=False
-        )
+        db.query(Item).filter(
+            Item.user_id == user_id,
+            Item.id.in_(decision.items_to_revert)
+        ).update({"status": "inbox"}, synchronize_session=False)
 
     db.commit()
     db.expire_all()
     return len(decision.items_to_revert)
 
 
-def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunResponse:
+def run_scheduler_for_date(db: Session, user_id: int = 1, target_date: Optional[date] = None) -> ScheduleRunResponse:
     """
-    Orchestrate scheduler for target_date:
+    Orchestrate scheduler for target_date scoped to user_id:
     1. Reschedule past undone items.
     2. Reset existing auto-generated slots on target_date that are not done.
     3. Gather inputs and execute pure greedy algorithm.
     4. Persist slots and update item statuses.
     """
+    t_date = target_date or date.today()
+
     # 1. Reschedule past undone items
-    rescheduled_count = run_reschedule_job(db, target_date)
+    rescheduled_count = run_reschedule_job(db, user_id=user_id, current_date=t_date)
 
     # 2. Reset existing auto-generated slots on target_date that are not done
     current_slots = (
         db.query(ScheduleSlot)
-        .filter(ScheduleSlot.date == target_date, ScheduleSlot.auto_generated == True)
+        .filter(
+            ScheduleSlot.user_id == user_id,
+            ScheduleSlot.date == t_date,
+            ScheduleSlot.auto_generated == True,
+        )
         .all()
     )
     for s in current_slots:
@@ -400,7 +563,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
     db.expire_all()
 
     # 3. Gather inputs for pure scheduler
-    inbox_items_db = db.query(Item).filter(Item.status == "inbox").all()
+    inbox_items_db = db.query(Item).filter(Item.user_id == user_id, Item.status == "inbox").all()
     inbox_items = [
         InboxItem(
             id=it.id,
@@ -415,7 +578,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
         for it in inbox_items_db
     ]
 
-    routine_db = db.query(RoutineBlock).all()
+    routine_db = db.query(RoutineBlock).filter(RoutineBlock.user_id == user_id).all()
     routine_items = [
         RoutineBlockItem(
             id=rb.id,
@@ -428,7 +591,10 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
         for rb in routine_db
     ]
 
-    existing_slots_db = db.query(ScheduleSlot).filter(ScheduleSlot.date == target_date).all()
+    existing_slots_db = db.query(ScheduleSlot).filter(
+        ScheduleSlot.user_id == user_id,
+        ScheduleSlot.date == t_date
+    ).all()
     existing_slots = [
         ExistingSlotItem(
             id=es.id,
@@ -440,7 +606,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
         for es in existing_slots_db
     ]
 
-    user_prefs_resp = get_or_create_user_prefs(db)
+    user_prefs_resp = get_or_create_user_prefs(db, user_id=user_id)
     prefs = SchedulerPrefs(
         preferred_deep_hours=user_prefs_resp.preferred_deep_hours,
         break_duration_pref=user_prefs_resp.break_duration_pref,
@@ -449,7 +615,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
 
     # 4. Call pure schedule_day
     result = schedule_day(
-        target_date=target_date,
+        target_date=t_date,
         inbox_items=inbox_items,
         routine_blocks=routine_items,
         existing_slots=existing_slots,
@@ -460,6 +626,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
     created_slots: List[ScheduleSlot] = []
     for prop in result.scheduled_slots:
         slot = ScheduleSlot(
+            user_id=user_id,
             item_id=prop.item_id,
             date=prop.date,
             start_time=prop.start_time,
@@ -467,7 +634,7 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
             auto_generated=prop.auto_generated,
         )
         db.add(slot)
-        item = db.query(Item).filter(Item.id == prop.item_id).first()
+        item = db.query(Item).filter(Item.user_id == user_id, Item.id == prop.item_id).first()
         if item:
             item.status = "scheduled"
         created_slots.append(slot)
@@ -478,19 +645,19 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
     persisted_slots = (
         db.query(ScheduleSlot)
         .options(joinedload(ScheduleSlot.item))
-        .filter(ScheduleSlot.date == target_date)
+        .filter(ScheduleSlot.user_id == user_id, ScheduleSlot.date == t_date)
         .order_by(ScheduleSlot.start_time.asc())
         .all()
     )
 
     unplaceable_db_items = (
-        db.query(Item).filter(Item.id.in_(result.unplaceable_item_ids)).all()
+        db.query(Item).filter(Item.user_id == user_id, Item.id.in_(result.unplaceable_item_ids)).all()
         if result.unplaceable_item_ids
         else []
     )
 
     return ScheduleRunResponse(
-        date=target_date,
+        date=t_date,
         scheduled_count=len(created_slots),
         unplaceable_count=len(unplaceable_db_items),
         rescheduled_count=rescheduled_count,
@@ -499,14 +666,18 @@ def run_scheduler_for_date(db: Session, target_date: date) -> ScheduleRunRespons
     )
 
 
-# --- Feedback & Learning Loop ---
+# --- Feedback & Learning Loop (User-Scoped) ---
 
-def get_feedback_stats(db: Session) -> FeedbackStatsResponse:
-    total = db.query(FeedbackLog).count()
+def get_feedback_stats(db: Session, user_id: int = 1) -> FeedbackStatsResponse:
+    total = db.query(FeedbackLog).filter(FeedbackLog.user_id == user_id).count()
     valid_logs = (
         db.query(FeedbackLog)
         .join(Item, FeedbackLog.item_id == Item.id)
-        .filter(FeedbackLog.actual_duration > 0, FeedbackLog.estimated_duration > 0)
+        .filter(
+            FeedbackLog.user_id == user_id,
+            FeedbackLog.actual_duration > 0,
+            FeedbackLog.estimated_duration > 0,
+        )
         .all()
     )
     cat_counts: Dict[str, int] = {}
@@ -519,7 +690,7 @@ def get_feedback_stats(db: Session) -> FeedbackStatsResponse:
             topic = log.item.topic_tag.lower()
             topic_counts[topic] = topic_counts.get(topic, 0) + 1
 
-    prefs = get_or_create_user_prefs(db)
+    prefs = get_or_create_user_prefs(db, user_id=user_id)
     return FeedbackStatsResponse(
         total_entries=total,
         samples_with_duration=len(valid_logs),
@@ -529,11 +700,15 @@ def get_feedback_stats(db: Session) -> FeedbackStatsResponse:
     )
 
 
-def recalibrate_multipliers(db: Session, min_samples: int = 5) -> FeedbackRecalibrateResponse:
+def recalibrate_multipliers(db: Session, user_id: int = 1, min_samples: int = 5) -> FeedbackRecalibrateResponse:
     valid_logs = (
         db.query(FeedbackLog)
         .join(Item, FeedbackLog.item_id == Item.id)
-        .filter(FeedbackLog.actual_duration > 0, FeedbackLog.estimated_duration > 0)
+        .filter(
+            FeedbackLog.user_id == user_id,
+            FeedbackLog.actual_duration > 0,
+            FeedbackLog.estimated_duration > 0,
+        )
         .all()
     )
     samples = [
@@ -554,10 +729,10 @@ def recalibrate_multipliers(db: Session, min_samples: int = 5) -> FeedbackRecali
 
     new_multipliers = compute_multipliers(samples, min_samples=min_samples)
 
-    # Fetch and update user_prefs
-    prefs = db.query(UserPrefs).filter(UserPrefs.user_id == 1).first()
+    # Fetch and update user_prefs for user_id
+    prefs = db.query(UserPrefs).filter(UserPrefs.user_id == user_id).first()
     if not prefs:
-        prefs = UserPrefs(user_id=1, category_duration_multiplier=json.dumps({}))
+        prefs = UserPrefs(user_id=user_id, category_duration_multiplier=json.dumps({}))
         db.add(prefs)
         db.flush()
 
@@ -581,10 +756,11 @@ def recalibrate_multipliers(db: Session, min_samples: int = 5) -> FeedbackRecali
     )
 
 
-# --- "What should I do now?" Suggestion Engine ---
+# --- "What should I do now?" Suggestion Engine (User-Scoped) ---
 
 def get_now_suggestion(
     db: Session,
+    user_id: int = 1,
     now: Optional[datetime] = None,
 ) -> NowSuggestionResponse:
     if now is None:
@@ -592,8 +768,8 @@ def get_now_suggestion(
 
     target_date = now.date()
 
-    # 1. Gather routine blocks
-    routine_db = db.query(RoutineBlock).all()
+    # 1. Gather routine blocks for user
+    routine_db = db.query(RoutineBlock).filter(RoutineBlock.user_id == user_id).all()
     routine_items = [
         RoutineBlockItem(
             id=rb.id,
@@ -606,11 +782,11 @@ def get_now_suggestion(
         for rb in routine_db
     ]
 
-    # 2. Gather today's slots with item loaded
+    # 2. Gather today's slots with item loaded for user
     slots_db = (
         db.query(ScheduleSlot)
         .options(joinedload(ScheduleSlot.item))
-        .filter(ScheduleSlot.date == target_date)
+        .filter(ScheduleSlot.user_id == user_id, ScheduleSlot.date == target_date)
         .all()
     )
     today_slots = [
@@ -635,8 +811,8 @@ def get_now_suggestion(
         for s in slots_db
     ]
 
-    # 3. Gather inbox items
-    inbox_db = db.query(Item).filter(Item.status == "inbox").all()
+    # 3. Gather inbox items for user
+    inbox_db = db.query(Item).filter(Item.user_id == user_id, Item.status == "inbox").all()
     inbox_items = [
         InboxItem(
             id=it.id,
@@ -651,8 +827,8 @@ def get_now_suggestion(
         for it in inbox_db
     ]
 
-    # 4. User prefs
-    user_prefs_resp = get_or_create_user_prefs(db)
+    # 4. User prefs for user
+    user_prefs_resp = get_or_create_user_prefs(db, user_id=user_id)
     prefs = SchedulerPrefs(
         preferred_deep_hours=user_prefs_resp.preferred_deep_hours,
         break_duration_pref=user_prefs_resp.break_duration_pref,
@@ -671,7 +847,7 @@ def get_now_suggestion(
     # 6. Fetch full models for response if present
     item_resp = None
     if suggestion.item:
-        db_item = db.query(Item).filter(Item.id == suggestion.item.id).first()
+        db_item = db.query(Item).filter(Item.user_id == user_id, Item.id == suggestion.item.id).first()
         if db_item:
             item_resp = ItemResponse.model_validate(db_item)
 
@@ -680,7 +856,7 @@ def get_now_suggestion(
         db_slot = (
             db.query(ScheduleSlot)
             .options(joinedload(ScheduleSlot.item))
-            .filter(ScheduleSlot.id == suggestion.slot.id)
+            .filter(ScheduleSlot.user_id == user_id, ScheduleSlot.id == suggestion.slot.id)
             .first()
         )
         if db_slot:
@@ -688,7 +864,10 @@ def get_now_suggestion(
 
     routine_resp = None
     if suggestion.routine_block:
-        db_routine = db.query(RoutineBlock).filter(RoutineBlock.id == suggestion.routine_block.id).first()
+        db_routine = db.query(RoutineBlock).filter(
+            RoutineBlock.user_id == user_id,
+            RoutineBlock.id == suggestion.routine_block.id
+        ).first()
         if db_routine:
             routine_resp = RoutineBlockResponse.model_validate(db_routine)
 
@@ -708,13 +887,15 @@ def record_suggestion_action(
     db: Session,
     item_id: int,
     action: str,
+    user_id: int = 1,
 ) -> SuggestionActionResponse:
-    item = db.query(Item).filter(Item.id == item_id).first()
+    item = db.query(Item).filter(Item.user_id == user_id, Item.id == item_id).first()
     if not item:
         raise ValueError(f"Item {item_id} not found")
 
     accepted = (action == "accept")
     log = FeedbackLog(
+        user_id=user_id,
         item_id=item_id,
         estimated_duration=item.est_duration_min,
         suggestion_accepted=accepted,
@@ -728,4 +909,3 @@ def record_suggestion_action(
         item_id=item_id,
         action=action,
     )
-

@@ -97,6 +97,13 @@ def clean_tables(pg_session):
         "schedule_slots", "feedback_log", "items", "routine_blocks", "user_prefs",
     ]):
         pg_session.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
+    # Ensure default test user exists with id=1
+    u = pg_session.execute(text("SELECT id FROM users WHERE id = 1")).fetchone()
+    if not u:
+        pg_session.execute(text(
+            "INSERT INTO users (id, email, password_hash, role, status) "
+            "VALUES (1, 'default@mindflow.local', 'fake_hash', 'USER', 'ACTIVE')"
+        ))
     pg_session.commit()
     yield
 
@@ -112,13 +119,13 @@ class TestSchemaCreation:
     def test_all_tables_exist(self, pg_engine, pg_tables):
         inspector = inspect(pg_engine)
         table_names = set(inspector.get_table_names())
-        expected = {"items", "routine_blocks", "schedule_slots", "feedback_log", "user_prefs"}
+        expected = {"users", "items", "routine_blocks", "schedule_slots", "feedback_log", "user_prefs"}
         assert expected.issubset(table_names), f"Missing tables: {expected - table_names}"
 
     def test_items_columns(self, pg_engine, pg_tables):
         inspector = inspect(pg_engine)
         columns = {c["name"] for c in inspector.get_columns("items")}
-        expected = {"id", "raw_text", "category", "priority", "est_duration_min",
+        expected = {"id", "user_id", "raw_text", "category", "priority", "est_duration_min",
                     "deadline", "status", "topic_tag", "created_at"}
         assert expected == columns
 
@@ -426,7 +433,7 @@ class TestServerDefaults:
         from app.models import Item
         # Insert via raw SQL to test server default (bypass Python default)
         pg_session.execute(
-            text("INSERT INTO items (raw_text, status) VALUES (:t, :s)"),
+            text("INSERT INTO items (raw_text, status, user_id) VALUES (:t, :s, 1)"),
             {"t": "Server default test", "s": "inbox"},
         )
         pg_session.commit()
@@ -441,7 +448,7 @@ class TestServerDefaults:
     def test_status_server_default(self, pg_session, clean_tables):
         """status should default to 'inbox' via server default."""
         pg_session.execute(
-            text("INSERT INTO items (raw_text) VALUES (:t)"),
+            text("INSERT INTO items (raw_text, user_id) VALUES (:t, 1)"),
             {"t": "Status default test"},
         )
         pg_session.commit()
@@ -455,7 +462,7 @@ class TestServerDefaults:
     def test_boolean_server_default(self, pg_session, clean_tables):
         """Boolean columns should default to true via server default."""
         pg_session.execute(
-            text("INSERT INTO routine_blocks (day_of_week, start_time, end_time) VALUES (0, '09:00', '10:00')"),
+            text("INSERT INTO routine_blocks (day_of_week, start_time, end_time, user_id) VALUES (0, '09:00', '10:00', 1)"),
         )
         pg_session.commit()
 
@@ -498,8 +505,12 @@ class TestAlembicMigrations:
         rev_ids = [r.revision for r in revisions]
         assert "e1bb4c49e1e1" in rev_ids, "Initial migration missing"
         assert "a3f7c8d2e5b1" in rev_ids, "PostgreSQL compat migration missing"
+        assert "c7f9e2b1d3a4" in rev_ids, "Auth & user isolation migration missing"
 
         # Verify chain order
         pg_compat = script.get_revision("a3f7c8d2e5b1")
         assert pg_compat.down_revision == "e1bb4c49e1e1"
+
+        auth_mig = script.get_revision("c7f9e2b1d3a4")
+        assert auth_mig.down_revision == "a3f7c8d2e5b1"
 

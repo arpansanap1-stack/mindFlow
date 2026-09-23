@@ -10,6 +10,15 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     GEMINI_API_KEY: str = ""
 
+    # Authentication & Security
+    JWT_SECRET: str = "mindflow-insecure-development-secret-change-in-production-min-32-chars-long"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    # Initial Administrator bootstrap (used only if users table is empty)
+    INITIAL_ADMIN_EMAIL: str = "admin@mindflow.local"
+    INITIAL_ADMIN_PASSWORD: str = "Admin@MindFlow123!"
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
