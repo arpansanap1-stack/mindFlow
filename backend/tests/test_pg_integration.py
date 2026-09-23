@@ -39,7 +39,7 @@ def _pg_available() -> bool:
     if not _is_pg:
         return False
     try:
-        eng = create_engine(PG_URL, connect_args={"connect_timeout": 2})
+        eng = create_engine(PG_URL, connect_args={"connect_timeout": 15})
         with eng.connect() as conn:
             conn.execute(text("SELECT 1"))
         eng.dispose()
@@ -76,7 +76,6 @@ def pg_tables(pg_engine):
 
     Base.metadata.create_all(bind=pg_engine)
     yield
-    Base.metadata.drop_all(bind=pg_engine)
 
 
 @pytest.fixture()
