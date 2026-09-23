@@ -4,7 +4,7 @@
 
 MindFlow is a local-first personal task and thought manager that turns quick, unstructured notes into an adaptive daily plan. Capture something in one line, let the app classify and schedule it around your routine, then use completion feedback to make future estimates more accurate.
 
-Built with React, FastAPI, and SQLite—no account or hosted service is required for the core experience.
+Built with React, FastAPI, and PostgreSQL—no account or hosted service is required for the core experience.
 
 ## What it does
 
@@ -28,7 +28,7 @@ Smart inbox
      ↓
 Routine-aware greedy scheduler
      ↓
-Today’s timeline + “What should I do now?”
+Today's timeline + "What should I do now?"
      ↓
 Completion feedback improves future estimates
 ```
@@ -41,7 +41,7 @@ The scheduler prioritizes deadline proximity, item priority, and time waiting in
 | --- | --- |
 | Client | React 19, Vite, Tailwind CSS, Lucide |
 | API | FastAPI, Pydantic, Uvicorn |
-| Persistence | SQLite, SQLAlchemy, Alembic |
+| Persistence | PostgreSQL, SQLAlchemy, Alembic, Psycopg 3 |
 | Local NLP | dateparser, sentence-transformers |
 | Optional AI fallback | Google Gemini |
 | Tests | pytest, HTTPX |
@@ -53,8 +53,43 @@ The scheduler prioritizes deadline proximity, item priority, and time waiting in
 - Python 3.11+
 - Node.js 20+
 - npm
+- PostgreSQL 14+
 
-### 1. Start the API
+### 1. Set up PostgreSQL
+
+Create a PostgreSQL database and user for MindFlow:
+
+```bash
+# Connect to PostgreSQL (adjust for your setup)
+psql -U postgres
+
+# Inside psql:
+CREATE USER mindflow WITH PASSWORD 'mindflow';
+CREATE DATABASE mindflow OWNER mindflow;
+\q
+```
+
+### 2. Configure environment
+
+Copy the example environment file and adjust if needed:
+
+```bash
+cp .env.example .env
+```
+
+The default `DATABASE_URL` connects to a local PostgreSQL instance:
+
+```env
+DATABASE_URL=postgresql+psycopg://mindflow:mindflow@localhost:5432/mindflow
+```
+
+Adjust the connection string if your PostgreSQL server uses different credentials, host, or port:
+
+```
+DATABASE_URL=postgresql+psycopg://username:password@host:port/database_name
+```
+
+### 3. Start the API
 
 From the repository root:
 
@@ -73,7 +108,7 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-Install dependencies, create the local database, and run the server:
+Install dependencies, run database migrations, and start the server:
 
 ```bash
 pip install -r requirements.txt
@@ -83,7 +118,7 @@ uvicorn app.main:app --reload
 
 The API is available at <http://127.0.0.1:8000>; interactive API documentation is at <http://127.0.0.1:8000/docs>.
 
-### 2. Start the web app
+### 4. Start the web app
 
 Open a second terminal from the repository root:
 
@@ -97,13 +132,46 @@ Open <http://127.0.0.1:5173>. In development, Vite proxies `/api` requests to th
 
 ### Optional: enable Gemini fallback
 
-Rules and local embeddings work without a key. To enable the final classification fallback, create `backend/.env`:
+Rules and local embeddings work without a key. To enable the final classification fallback, add your API key to `.env`:
 
 ```env
 GEMINI_API_KEY=your_key_here
 ```
 
-`backend/.env` is ignored by Git. If no key is configured, uncertain captures safely retain the best result from the local pipeline.
+`.env` is ignored by Git. If no key is configured, uncertain captures safely retain the best result from the local pipeline.
+
+## Database migrations
+
+MindFlow uses [Alembic](https://alembic.sqlalchemy.org/) for database schema migrations.
+
+### Apply migrations
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+### Create a new migration
+
+After modifying SQLAlchemy models in `app/models.py`:
+
+```bash
+cd backend
+alembic revision --autogenerate -m "description_of_change"
+```
+
+Review the generated migration file in `backend/alembic/versions/`, then apply:
+
+```bash
+alembic upgrade head
+```
+
+### View migration history
+
+```bash
+alembic history --verbose
+alembic current
+```
 
 ## API overview
 
@@ -133,6 +201,8 @@ cd backend
 pytest
 ```
 
+This runs the fast unit/integration tests using in-memory SQLite. PostgreSQL integration tests run automatically when `DATABASE_URL` points to an available PostgreSQL instance.
+
 Build or lint the frontend:
 
 ```bash
@@ -151,8 +221,8 @@ mindFlow/
 │   │   ├── scheduler/       # Scheduling and rescheduling algorithms
 │   │   ├── routers/         # FastAPI endpoints
 │   │   └── feedback/        # Duration-learning logic
-│   ├── alembic/             # SQLite schema migrations
-│   └── tests/               # API and unit tests
+│   ├── alembic/             # Database schema migrations
+│   └── tests/               # API, unit, and PostgreSQL integration tests
 ├── frontend/
 │   └── src/                 # React UI, components, and API clients
 └── SPEC.md                  # Product and implementation specification

@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -56,7 +57,7 @@ class RoutineBlock(Base):
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     label = Column(String(255), nullable=True)
-    fixed = Column(Boolean, nullable=False, default=True, server_default="1")
+    fixed = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
     __table_args__ = (
         CheckConstraint(
@@ -74,7 +75,7 @@ class ScheduleSlot(Base):
     date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    auto_generated = Column(Boolean, nullable=False, default=True, server_default="1")
+    auto_generated = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
     item = relationship("Item", back_populates="schedule_slots")
 
@@ -95,8 +96,8 @@ class FeedbackLog(Base):
 class UserPrefs(Base):
     __tablename__ = "user_prefs"
 
-    user_id = Column(Integer, primary_key=True, default=1, server_default="1")
+    user_id = Column(Integer, primary_key=True, default=1, server_default=text("1"))
     preferred_deep_hours = Column(Text, nullable=True)         # JSON e.g. ["09:00-11:00"]
-    break_duration_pref = Column(Integer, nullable=False, default=10, server_default="10")
+    break_duration_pref = Column(Integer, nullable=False, default=10, server_default=text("10"))
     category_duration_multiplier = Column(Text, nullable=True) # JSON e.g. {"study": 1.4}
 

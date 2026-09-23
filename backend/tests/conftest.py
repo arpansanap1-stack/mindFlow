@@ -6,8 +6,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
+import app.database as app_db
 from app.database import Base, get_db
+from app.config import settings
 from app.main import app
+
+# Ensure tests don't make real Gemini API calls unless explicitly patched in test
+settings.GEMINI_API_KEY = ""
 
 # In-memory SQLite with StaticPool so all threads/sessions share the same memory DB
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -26,6 +31,10 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.close()
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Point app.database.SessionLocal to TestingSessionLocal for tests
+app_db.SessionLocal = TestingSessionLocal
+app_db.engine = engine
 
 
 @pytest.fixture(scope="function")
@@ -51,4 +60,3 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
-

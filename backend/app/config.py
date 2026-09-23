@@ -3,7 +3,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./mindflow.db"
+    DATABASE_URL: str = "postgresql+psycopg://mindflow:mindflow@localhost:5432/mindflow"
     HOST: str = "127.0.0.1"
     PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -21,4 +21,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
