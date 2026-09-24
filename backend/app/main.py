@@ -53,6 +53,18 @@ app.include_router(feedback.router)
 app.include_router(suggest.router)
 
 
+@app.get("/", tags=["system"])
+def root():
+    return {
+        "app": "MindFlow API",
+        "status": "online",
+        "version": "0.2.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health", tags=["system"])
 def health_check():
     return {"status": "ok", "app": "MindFlow", "version": "0.2.0"}
+
