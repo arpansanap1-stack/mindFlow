@@ -1,0 +1,57 @@
+INFO:     Started server process [13952]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Retrying in 1s [Retry 1/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Retrying in 2s [Retry 2/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Retrying in 4s [Retry 3/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Retrying in 8s [Retry 4/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Retrying in 8s [Retry 5/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|##########| 103/103 [00:00<00:00, 2977.99it/s]
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+Retrying in 1s [Retry 1/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+Retrying in 2s [Retry 2/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+Retrying in 4s [Retry 3/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+Retrying in 8s [Retry 4/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+Retrying in 8s [Retry 5/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/processor_config.json
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 1s [Retry 1/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 2s [Retry 2/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 4s [Retry 3/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 8s [Retry 4/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 8s [Retry 5/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+Retrying in 1s [Retry 1/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+Retrying in 2s [Retry 2/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+Retrying in 4s [Retry 3/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+Retrying in 8s [Retry 4/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+Retrying in 8s [Retry 5/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/video_preprocessor_config.json
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 1s [Retry 1/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 2s [Retry 2/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 4s [Retry 3/5].
+'[WinError 10061] No connection could be made because the target machine actively refused it' thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/preprocessor_config.json
+Retrying in 8s [Retry 4/5].
