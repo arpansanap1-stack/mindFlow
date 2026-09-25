@@ -6,14 +6,10 @@ import {
   Trash2,
   Edit3,
   Sliders,
-  CheckCircle2,
   Lock,
-  Sparkles,
   Save,
-  X,
   RefreshCw,
-  TrendingUp,
-  Brain,
+  Gauge,
 } from 'lucide-react';
 import {
   fetchRoutineBlocks,
@@ -27,6 +23,10 @@ import {
   fetchFeedbackStats,
   recalibrateMultipliers,
 } from '../api/feedback';
+import Button from './ui/Button';
+import Modal from './ui/Modal';
+import Skeleton from './ui/Skeleton';
+import EmptyState from './ui/EmptyState';
 
 const DAYS = [
   { id: 0, name: 'Monday', short: 'Mon' },
@@ -39,11 +39,10 @@ const DAYS = [
 ];
 
 export default function RoutineProfile({ onToast }) {
-  const [selectedDay, setSelectedDay] = useState(0); // 0 = Monday
+  const [selectedDay, setSelectedDay] = useState(0);
   const [blocks, setBlocks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // New/Edit block modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState(null);
   const [dayOfWeek, setDayOfWeek] = useState(0);
@@ -53,17 +52,14 @@ export default function RoutineProfile({ onToast }) {
   const [isFixed, setIsFixed] = useState(true);
   const [isSavingBlock, setIsSavingBlock] = useState(false);
 
-  // User preferences state
   const [deepHoursInput, setDeepHoursInput] = useState('09:00-11:00');
   const [breakDuration, setBreakDuration] = useState(10);
   const [multipliers, setMultipliers] = useState({});
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
 
-  // Feedback & Learning state
   const [feedbackStats, setFeedbackStats] = useState(null);
   const [isRecalibrating, setIsRecalibrating] = useState(false);
 
-  // Load routine blocks and prefs
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -107,7 +103,6 @@ export default function RoutineProfile({ onToast }) {
   const openEditModal = (block) => {
     setEditingBlock(block);
     setDayOfWeek(block.day_of_week);
-    // Format HH:MM
     const s = block.start_time.slice(0, 5);
     const e = block.end_time.slice(0, 5);
     setStartTime(s);
@@ -208,35 +203,33 @@ export default function RoutineProfile({ onToast }) {
     }
   };
 
-  // Filter blocks for currently selected day
   const dayBlocks = blocks
     .filter((b) => b.day_of_week === selectedDay)
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
-      {/* Intro header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e2ded5] dark:border-[#383530]">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            Routine Profile & Work Preferences
+          <h2 className="text-lg font-semibold text-[#1f1e1d] dark:text-[#ebe8e2] flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[#2d553c] dark:text-[#5b8a6c]" />
+            Routine & Commitments
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure your fixed weekly commitments so the auto-scheduler only schedules tasks in free slots.
+          <p className="text-xs text-[#6b6760] dark:text-[#9e998f] mt-0.5">
+            Configure classes, sleep, and meals so MindFlow plans study goals around them.
           </p>
         </div>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           onClick={() => openAddModal(selectedDay)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium text-xs shadow-sm transition-all cursor-pointer self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5 mr-1" />
           <span>Add Commitment</span>
-        </button>
+        </Button>
       </div>
 
-      {/* Day of Week Navigation */}
-      <div className="grid grid-cols-7 gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+      <div className="grid grid-cols-7 gap-1.5 p-1 bg-[#f4f2ee] dark:bg-[#282623] rounded-xl border border-[#e2ded5] dark:border-[#383530] text-xs">
         {DAYS.map((day) => {
           const count = blocks.filter((b) => b.day_of_week === day.id).length;
           const isActive = selectedDay === day.id;
@@ -244,10 +237,10 @@ export default function RoutineProfile({ onToast }) {
             <button
               key={day.id}
               onClick={() => setSelectedDay(day.id)}
-              className={`flex flex-col items-center py-2 px-1 rounded-xl transition-all cursor-pointer ${
+              className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors cursor-pointer ${
                 isActive
-                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'
+                  ? 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#2d553c] dark:text-[#5b8a6c] shadow-xs font-semibold'
+                  : 'text-[#6b6760] dark:text-[#9e998f] hover:bg-[#ffffff]/50 dark:hover:bg-[#1f1e1d]/50'
               }`}
             >
               <span>{day.short}</span>
@@ -255,9 +248,9 @@ export default function RoutineProfile({ onToast }) {
                 className={`text-[10px] mt-0.5 px-1.5 py-0.2 rounded-full ${
                   count > 0
                     ? isActive
-                      ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 font-bold'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                    : 'text-slate-400 opacity-60'
+                      ? 'bg-[#2d553c]/10 text-[#2d553c] dark:text-[#5b8a6c] font-semibold'
+                      : 'bg-[#e2ded5] dark:bg-[#383530] text-[#6b6760] dark:text-[#9e998f]'
+                    : 'text-[#9e998f] opacity-50'
                 }`}
               >
                 {count}
@@ -267,41 +260,40 @@ export default function RoutineProfile({ onToast }) {
         })}
       </div>
 
-      {/* Routine Blocks for Selected Day */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+        <div className="flex items-center justify-between text-xs font-medium text-[#6b6760] dark:text-[#9e998f] px-1">
           <span>{DAYS[selectedDay].name} Commitments</span>
           <span>{dayBlocks.length} scheduled</span>
         </div>
 
         {isLoading ? (
-          <div className="py-12 text-center text-slate-400 text-sm">
-            <Clock className="w-5 h-5 mx-auto animate-spin mb-2 opacity-50" />
-            Loading routine...
+          <div className="space-y-2 py-4">
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
           </div>
         ) : dayBlocks.length > 0 ? (
           <div className="space-y-2">
             {dayBlocks.map((block) => (
               <div
                 key={block.id}
-                className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 hover:shadow-xs transition-shadow"
+                className="flex items-center justify-between bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-xl p-3.5 hover:border-[#b8b3a7] transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <div className="p-2 rounded-lg bg-[#f4f2ee] dark:bg-[#282623] text-[#2d553c] dark:text-[#5b8a6c] shrink-0 border border-[#e2ded5] dark:border-[#383530]">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                      <span className="font-medium text-sm text-[#1f1e1d] dark:text-[#ebe8e2]">
                         {block.label || 'Commitment'}
                       </span>
                       {block.fixed && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#f4f2ee] dark:bg-[#282623] text-[#6b6760] dark:text-[#9e998f] border border-[#e2ded5] dark:border-[#383530]">
                           <Lock className="w-2.5 h-2.5" /> Fixed
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                    <p className="text-xs text-[#6b6760] dark:text-[#9e998f] font-mono mt-0.5">
                       {block.start_time.slice(0, 5)} – {block.end_time.slice(0, 5)}
                     </p>
                   </div>
@@ -310,15 +302,17 @@ export default function RoutineProfile({ onToast }) {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => openEditModal(block)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] hover:bg-[#f4f2ee] dark:hover:bg-[#282623] transition-colors cursor-pointer"
                     title="Edit block"
+                    aria-label="Edit block"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteBlock(block.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#6b6760] hover:text-[#7d3b2b] dark:hover:text-[#d48372] hover:bg-[#7d3b2b]/10 transition-colors cursor-pointer"
                     title="Delete block"
+                    aria-label="Delete block"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -327,29 +321,20 @@ export default function RoutineProfile({ onToast }) {
             ))}
           </div>
         ) : (
-          <div className="text-center py-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              No routine commitments set for {DAYS[selectedDay].name}
-            </p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              Add your daily meetings, meals, gym time, or sleep blocks so MindFlow protects this time.
-            </p>
-            <button
-              onClick={() => openAddModal(selectedDay)}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add block for {DAYS[selectedDay].short}
-            </button>
-          </div>
+          <EmptyState
+            icon={Calendar}
+            title={`No commitments set for ${DAYS[selectedDay].name}`}
+            description="Add lectures, labs, gym, sleep, or meal hours so MindFlow knows when you are busy."
+            actionLabel={`Add for ${DAYS[selectedDay].short}`}
+            onAction={() => openAddModal(selectedDay)}
+          />
         )}
       </div>
 
-      {/* User Preferences Section */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+      <div className="bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-[#e2ded5] dark:border-[#383530] pb-3">
+          <Sliders className="w-4 h-4 text-[#2d553c] dark:text-[#5b8a6c]" />
+          <h3 className="text-sm font-semibold text-[#1f1e1d] dark:text-[#ebe8e2]">
             Scheduling Preferences
           </h3>
         </div>
@@ -357,23 +342,23 @@ export default function RoutineProfile({ onToast }) {
         <form onSubmit={handleSavePrefs} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                Preferred Deep Work Hours (JSON/List)
+              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
+                Preferred Focus Windows (e.g. 09:00-11:00)
               </label>
               <input
                 type="text"
                 value={deepHoursInput}
                 onChange={(e) => setDeepHoursInput(e.target.value)}
                 placeholder="09:00-11:00, 14:00-16:00"
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                className="w-full px-3 py-2 text-xs bg-[#fbfaf8] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c] font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                High priority / deep tasks will prefer these windows.
+              <p className="text-[11px] text-[#6b6760] dark:text-[#9e998f] mt-1">
+                High priority / deep tasks will prefer these open hours.
               </p>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
                 Break Duration Between Deep Tasks (Minutes)
               </label>
               <input
@@ -382,95 +367,93 @@ export default function RoutineProfile({ onToast }) {
                 max="60"
                 value={breakDuration}
                 onChange={(e) => setBreakDuration(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 text-xs bg-[#fbfaf8] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Inserted automatically after any focus task &gt; 45min.
+              <p className="text-[11px] text-[#6b6760] dark:text-[#9e998f] mt-1">
+                Inserted automatically after tasks longer than 45 min.
               </p>
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <button
+          <div className="flex justify-end pt-1">
+            <Button
               type="submit"
+              variant="primary"
+              size="sm"
               disabled={isSavingPrefs}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-colors cursor-pointer disabled:opacity-50"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5 mr-1" />
               <span>{isSavingPrefs ? 'Saving...' : 'Save Preferences'}</span>
-            </button>
+            </Button>
           </div>
         </form>
       </div>
 
-      {/* Learning Loop & Duration Calibration Card (SPEC 1.7) */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e2ded5] dark:border-[#383530] pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400">
-              <Brain className="w-5 h-5" />
+            <div className="p-2 rounded-lg bg-[#2d553c]/10 text-[#2d553c] dark:text-[#5b8a6c]">
+              <Gauge className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Duration Multiplier Learning Loop
+              <h3 className="text-sm font-semibold text-[#1f1e1d] dark:text-[#ebe8e2]">
+                Personal Pacing Calibration
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Learns your personal pacing from actual vs. estimated completion times (SPEC 1.7)
+              <p className="text-xs text-[#6b6760] dark:text-[#9e998f]">
+                Learns your real completion speed to make schedules more realistic
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleRecalibrate}
             disabled={isRecalibrating}
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRecalibrating ? 'animate-spin' : ''}`} />
-            <span>{isRecalibrating ? 'Recalibrating...' : 'Recalibrate Now'}</span>
-          </button>
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRecalibrating ? 'animate-spin' : ''}`} />
+            <span>{isRecalibrating ? 'Recalibrating...' : 'Recalibrate'}</span>
+          </Button>
         </div>
 
-        {/* Stats summary */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+          <div className="p-3 rounded-lg bg-[#f4f2ee] dark:bg-[#282623] border border-[#e2ded5] dark:border-[#383530]">
+            <span className="text-[11px] font-medium text-[#6b6760] dark:text-[#9e998f] block mb-1">
               Feedback Logs
             </span>
-            <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <div className="text-base font-semibold text-[#1f1e1d] dark:text-[#ebe8e2]">
               {feedbackStats?.total_entries ?? 0}
             </div>
-            <span className="text-[11px] text-slate-500">Total items completed</span>
+            <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">Completed items</span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+          <div className="p-3 rounded-lg bg-[#f4f2ee] dark:bg-[#282623] border border-[#e2ded5] dark:border-[#383530]">
+            <span className="text-[11px] font-medium text-[#6b6760] dark:text-[#9e998f] block mb-1">
               Duration Samples
             </span>
-            <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <div className="text-base font-semibold text-[#1f1e1d] dark:text-[#ebe8e2]">
               {feedbackStats?.samples_with_duration ?? 0}
             </div>
-            <span className="text-[11px] text-slate-500">With actual time recorded</span>
+            <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">With actual duration</span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+          <div className="p-3 rounded-lg bg-[#f4f2ee] dark:bg-[#282623] border border-[#e2ded5] dark:border-[#383530]">
+            <span className="text-[11px] font-medium text-[#6b6760] dark:text-[#9e998f] block mb-1">
               Active Multipliers
             </span>
-            <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+            <div className="text-base font-semibold text-[#2d553c] dark:text-[#5b8a6c]">
               {Object.keys(multipliers).length}
             </div>
-            <span className="text-[11px] text-slate-500">Categories / topics calibrated</span>
+            <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">Categories calibrated</span>
           </div>
         </div>
 
-        {/* Category sample progress toward 5-item threshold */}
         <div className="space-y-2 pt-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-700 dark:text-slate-300">
-              Category Sample Progress (Threshold: 5 samples)
+            <span className="font-medium text-[#1f1e1d] dark:text-[#ebe8e2]">
+              Category Calibration (Target: 5 completed samples)
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">
               Clamped between 0.5x and 3.0x
             </span>
           </div>
@@ -485,33 +468,33 @@ export default function RoutineProfile({ onToast }) {
               return (
                 <div
                   key={cat}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/30 flex flex-col justify-between"
+                  className="p-3 rounded-lg border border-[#e2ded5] dark:border-[#383530] bg-[#ffffff] dark:bg-[#1f1e1d] flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold capitalize text-slate-800 dark:text-slate-200">
+                    <span className="text-xs font-medium capitalize text-[#1f1e1d] dark:text-[#ebe8e2]">
                       {cat}
                     </span>
                     {mult !== undefined ? (
-                      <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-[#2d553c]/10 text-[#2d553c] dark:text-[#5b8a6c] border border-[#2d553c]/20">
                         {mult}x
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-400">1.0x (default)</span>
+                      <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">1.0x (std)</span>
                     )}
                   </div>
 
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mb-1">
+                  <div className="w-full bg-[#f4f2ee] dark:bg-[#282623] h-1.5 rounded-full overflow-hidden mb-1">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        isCalibrated ? 'bg-emerald-500' : 'bg-indigo-500'
+                        isCalibrated ? 'bg-[#2d553c] dark:bg-[#5b8a6c]' : 'bg-[#6b6760]'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-[#6b6760] dark:text-[#9e998f]">
                     <span>{count}/5 samples</span>
-                    <span className={isCalibrated ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}>
+                    <span className={isCalibrated ? 'text-[#2d553c] dark:text-[#5b8a6c] font-medium' : ''}>
                       {isCalibrated ? 'Calibrated' : 'Learning'}
                     </span>
                   </div>
@@ -520,153 +503,104 @@ export default function RoutineProfile({ onToast }) {
             })}
           </div>
         </div>
-
-        {/* Topic Multipliers if present */}
-        {feedbackStats?.topic_counts && Object.keys(feedbackStats.topic_counts).length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <span className="font-semibold text-xs text-slate-700 dark:text-slate-300 block">
-              Observed Topic Tags
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(feedbackStats.topic_counts).map(([topic, count]) => {
-                const mult = multipliers[topic];
-                return (
-                  <span
-                    key={topic}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                  >
-                    <span className="font-medium">#{topic}</span>
-                    <span className="text-[10px] text-slate-400">({count} samples)</span>
-                    {mult !== undefined && (
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 ml-1">
-                        {mult}x
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Routine Block Modal */}
-      {isModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {editingBlock ? 'Edit Routine Block' : 'Add Routine Commitment'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingBlock ? 'Edit Routine Commitment' : 'Add Routine Commitment'}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveBlock} className="space-y-4 text-xs">
+          <div>
+            <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
+              Day of Week
+            </label>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
+            >
+              {DAYS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
+              Label
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Lectures, Gym, Sleep, Lunch"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
+                Start Time
+              </label>
+              <input
+                type="time"
+                required
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
+              />
             </div>
 
-            <form onSubmit={handleSaveBlock} className="p-6 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Day of Week
-                </label>
-                <select
-                  value={dayOfWeek}
-                  onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {DAYS.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Label
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Lunch, Standup, Sleep, Gym"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="fixed-toggle"
-                  checked={isFixed}
-                  onChange={(e) => setIsFixed(e.target.checked)}
-                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label htmlFor="fixed-toggle" className="text-slate-700 dark:text-slate-300 cursor-pointer">
-                  Fixed commitment (cannot be rescheduled or overwritten by auto-scheduler)
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingBlock}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isSavingBlock ? 'Saving...' : editingBlock ? 'Save Changes' : 'Add Block'}
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
+                End Time
+              </label>
+              <input
+                type="time"
+                required
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="fixed-toggle"
+              checked={isFixed}
+              onChange={(e) => setIsFixed(e.target.checked)}
+              className="rounded border-[#e2ded5] text-[#2d553c] focus:ring-[#2d553c]"
+            />
+            <label htmlFor="fixed-toggle" className="text-[#3b3834] dark:text-[#d3cebe] cursor-pointer">
+              Fixed commitment (auto-scheduler will never overwrite this time)
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#e2ded5] dark:border-[#383530]">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSavingBlock}
+            >
+              {isSavingBlock ? 'Saving...' : editingBlock ? 'Save Changes' : 'Add Commitment'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
-

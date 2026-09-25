@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
+import TodayView from './components/TodayView';
 import CaptureBar from './components/CaptureBar';
 import SmartInbox from './components/SmartInbox';
 import RoutineProfile from './components/RoutineProfile';
 import TimelineView from './components/TimelineView';
 import ItemEditModal from './components/ItemEditModal';
 import CompleteModal from './components/CompleteModal';
-import NowSuggestionWidget from './components/NowSuggestionWidget';
+import OnboardingModal from './components/OnboardingModal';
+import MobileNav from './components/MobileNav';
 import LoginPage from './components/LoginPage';
 import AdminDashboard from './components/AdminDashboard';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -29,7 +31,7 @@ import { AlertCircle, CheckCircle2, X, Loader2 } from 'lucide-react';
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'schedule', 'routine', 'admin'
+  const [activeTab, setActiveTab] = useState('today'); // 'today', 'inbox', 'schedule', 'routine', 'admin'
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('inbox');
@@ -39,6 +41,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   const triggerSuggestionRefresh = () => setSuggestionRefreshKey((k) => k + 1);
 
@@ -70,6 +73,10 @@ export default function App() {
       try {
         const user = await getMe();
         setCurrentUser(user);
+        const hasOnboarded = localStorage.getItem('mindflow_onboarded');
+        if (!hasOnboarded) {
+          setIsOnboardingOpen(true);
+        }
       } catch (err) {
         console.warn('Initial auth check failed:', err);
         setCurrentUser(null);
@@ -119,7 +126,7 @@ export default function App() {
     }
   }, [currentUser, loadItems]);
 
-  // Auto-refresh in place when an item is in "classifying..." state (SPEC 1.5)
+  // Auto-refresh in place when an item is in "classifying..." state
   useEffect(() => {
     if (!currentUser) return;
     const hasUnclassified = items.some(
@@ -142,8 +149,12 @@ export default function App() {
   // Handle Login Success
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    setActiveTab('inbox');
+    setActiveTab('today');
     showToast(`Welcome back, ${user.email}!`);
+    const hasOnboarded = localStorage.getItem('mindflow_onboarded');
+    if (!hasOnboarded) {
+      setIsOnboardingOpen(true);
+    }
   };
 
   // Handle Sign Out
@@ -151,7 +162,7 @@ export default function App() {
     await logout();
     setCurrentUser(null);
     setItems([]);
-    setActiveTab('inbox');
+    setActiveTab('today');
     showToast('Signed out successfully');
   };
 
@@ -163,7 +174,7 @@ export default function App() {
         setItems((prev) => [newItem, ...prev]);
       }
       triggerSuggestionRefresh();
-      showToast('Item captured to inbox!');
+      showToast('Item captured to workspace');
     } catch (err) {
       showToast(err.message || 'Failed to capture item', 'error');
       throw err;
@@ -228,10 +239,10 @@ export default function App() {
   // Loading initial auth state
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-          <span className="text-xs font-medium">Loading MindFlow...</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#fbfaf8] dark:bg-[#1a1918] text-[#6b6760]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#2d553c] dark:text-[#5b8a6c]" />
+          <span className="text-xs font-medium">Opening MindFlow...</span>
         </div>
       </div>
     );
@@ -243,18 +254,18 @@ export default function App() {
       <>
         <LoginPage onLoginSuccess={handleLoginSuccess} />
         {toast && (
-          <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-150">
             <div
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg shadow-sm border text-xs font-medium ${
                 toast.type === 'error'
-                  ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-900'
-                  : 'bg-slate-900 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-slate-200'
+                  ? 'bg-[#7d3b2b]/10 text-[#7d3b2b] border-[#7d3b2b]/30'
+                  : 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] border-[#e2ded5] dark:border-[#383530]'
               }`}
             >
               {toast.type === 'error' ? (
-                <AlertCircle className="w-4 h-4 text-red-500" />
+                <AlertCircle className="w-4 h-4 text-[#7d3b2b]" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-[#2d553c]" />
               )}
               <span>{toast.message}</span>
             </div>
@@ -265,7 +276,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#fbfaf8] dark:bg-[#1a1918] text-[#1f1e1d] dark:text-[#ebe8e2] flex flex-col font-sans transition-colors duration-150 pb-16 sm:pb-0">
       <Header
         isOnline={isOnline}
         activeTab={activeTab}
@@ -279,31 +290,35 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
-        {/* Admin Dashboard Tab */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
         {activeTab === 'admin' && currentUser.role === 'ADMIN' ? (
           <section aria-label="Administrator Dashboard">
             <AdminDashboard currentUser={currentUser} onToast={showToast} />
           </section>
         ) : (
           <>
-            {/* Prominent "What should I do now?" Banner / Widget */}
-            <section aria-label="What should I do now? Area">
-              <NowSuggestionWidget
-                onCompleteItem={handlePromptComplete}
-                onToast={showToast}
-                refreshTrigger={suggestionRefreshKey}
-              />
-            </section>
+            {/* Primary Experience: Today */}
+            {activeTab === 'today' && (
+              <section aria-label="Today Workspace">
+                <TodayView
+                  items={items}
+                  currentUser={currentUser}
+                  onCompleteItem={handlePromptComplete}
+                  onCapture={handleCapture}
+                  onToast={showToast}
+                  suggestionRefreshKey={suggestionRefreshKey}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              </section>
+            )}
 
+            {/* Smart Inbox Tab */}
             {activeTab === 'inbox' && (
-              <>
-                {/* Capture Bar */}
+              <div className="space-y-6">
                 <section aria-label="Quick Capture Area">
                   <CaptureBar onCapture={handleCapture} isLoading={isLoading} />
                 </section>
 
-                {/* Smart Inbox */}
                 <section aria-label="Smart Inbox Area">
                   <SmartInbox
                     items={items}
@@ -315,9 +330,10 @@ export default function App() {
                     onDeleteItem={handleDeleteItem}
                   />
                 </section>
-              </>
+              </div>
             )}
 
+            {/* Day Plan (Schedule) Tab */}
             {activeTab === 'schedule' && (
               <section aria-label="Day Schedule Area">
                 <TimelineView
@@ -327,6 +343,7 @@ export default function App() {
               </section>
             )}
 
+            {/* Routine Calibration Tab */}
             {activeTab === 'routine' && (
               <section aria-label="Routine Profile Area">
                 <RoutineProfile onToast={showToast} />
@@ -335,6 +352,30 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Responsive Mobile Bottom Navigation */}
+      <MobileNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          if (tab === 'admin' && currentUser.role !== 'ADMIN') return;
+          setActiveTab(tab);
+        }}
+        onOpenQuickAdd={() => {
+          setActiveTab('inbox');
+          setTimeout(() => {
+            const el = document.getElementById('capture-input');
+            el?.focus();
+          }, 100);
+        }}
+        currentUser={currentUser}
+      />
+
+      {/* First-Time Gentle Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onQuickCreate={handleCapture}
+      />
 
       {/* Item Edit Modal */}
       <ItemEditModal
@@ -352,7 +393,7 @@ export default function App() {
         onConfirm={handleConfirmComplete}
       />
 
-      {/* Mandatory Password Change Modal (on first login or after admin reset) */}
+      {/* Mandatory Password Change Modal */}
       <ChangePasswordModal
         isOpen={Boolean(currentUser?.must_change_password)}
         isMandatory={true}
@@ -373,25 +414,26 @@ export default function App() {
         }}
       />
 
-      {/* Toast feedback */}
+      {/* Toast notification feedback */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-150">
           <div
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg shadow-sm border text-xs font-medium ${
               toast.type === 'error'
-                ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-900'
-                : 'bg-slate-900 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-slate-200'
+                ? 'bg-[#7d3b2b]/10 text-[#7d3b2b] border-[#7d3b2b]/30'
+                : 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] border-[#e2ded5] dark:border-[#383530]'
             }`}
           >
             {toast.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 text-red-500" />
+              <AlertCircle className="w-4 h-4 text-[#7d3b2b] shrink-0" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-[#2d553c] dark:text-[#5b8a6c] shrink-0" />
             )}
             <span>{toast.message}</span>
             <button
               onClick={() => setToast(null)}
-              className="ml-2 opacity-60 hover:opacity-100 p-0.5 cursor-pointer"
+              className="ml-2 text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] cursor-pointer"
+              aria-label="Dismiss toast"
             >
               <X className="w-3.5 h-3.5" />
             </button>

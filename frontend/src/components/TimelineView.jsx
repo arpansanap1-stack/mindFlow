@@ -3,17 +3,20 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Clock,
   Lock,
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Layers,
   Circle,
+  CalendarCheck,
 } from 'lucide-react';
 import { fetchSchedule, runScheduler } from '../api/schedule';
 import { fetchRoutineBlocks } from '../api/routine';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import Skeleton from './ui/Skeleton';
+import EmptyState from './ui/EmptyState';
 
 export default function TimelineView({ onCompleteItem, onToast }) {
   const getTodayStr = () => new Date().toISOString().split('T')[0];
@@ -30,7 +33,6 @@ export default function TimelineView({ onCompleteItem, onToast }) {
     setIsLoading(true);
     try {
       const d = new Date(targetDate + 'T00:00:00');
-      // Python weekday: 0=Monday, 6=Sunday. JS getDay(): 0=Sunday, 1=Monday...
       const jsDay = d.getDay();
       const pythonWeekday = jsDay === 0 ? 6 : jsDay - 1;
 
@@ -80,11 +82,9 @@ export default function TimelineView({ onCompleteItem, onToast }) {
     }
   };
 
-  // Merge routine blocks and schedule slots into a single chronological timeline
   const timelineItems = useMemo(() => {
     const combined = [];
 
-    // Routine blocks
     routineBlocks.forEach((rb) => {
       combined.push({
         type: 'routine',
@@ -96,7 +96,6 @@ export default function TimelineView({ onCompleteItem, onToast }) {
       });
     });
 
-    // Scheduled task slots
     slots.forEach((s) => {
       combined.push({
         type: 'slot',
@@ -109,16 +108,13 @@ export default function TimelineView({ onCompleteItem, onToast }) {
       });
     });
 
-    // Sort chronologically
     combined.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-    // Calculate free gaps between 08:00 and 22:00
     const finalTimeline = [];
     let lastEnd = '08:00';
 
     combined.forEach((entry) => {
       if (entry.startTime > lastEnd) {
-        // Compute duration of gap in minutes
         const [h1, m1] = lastEnd.split(':').map(Number);
         const [h2, m2] = entry.startTime.split(':').map(Number);
         const gapMin = (h2 * 60 + m2) - (h1 * 60 + m1);
@@ -139,7 +135,6 @@ export default function TimelineView({ onCompleteItem, onToast }) {
       }
     });
 
-    // Check if free time remains until 22:00
     if (lastEnd < '22:00') {
       const [h1, m1] = lastEnd.split(':').map(Number);
       const gapMin = (22 * 60) - (h1 * 60 + m1);
@@ -172,57 +167,43 @@ export default function TimelineView({ onCompleteItem, onToast }) {
 
   const isToday = selectedDate === getTodayStr();
 
-  const priorityStyles = {
-    5: 'bg-red-500 text-white',
-    4: 'bg-orange-500 text-white',
-    3: 'bg-yellow-500 text-white',
-    2: 'bg-blue-400 text-white',
-    1: 'bg-slate-400 text-white',
-  };
-
-  const categoryStyles = {
-    task: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-900',
-    idea: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-900',
-    reminder: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-900',
-    deadline: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900',
-  };
-
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6">
+    <div className="w-full max-w-3xl mx-auto space-y-5">
       {/* Date Header & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e2ded5] dark:border-[#383530]">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <CalendarDays className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-lg font-semibold text-[#1f1e1d] dark:text-[#ebe8e2] flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-[#2d553c] dark:text-[#5b8a6c]" />
               {formattedDateTitle}
             </h2>
             {isToday && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#2d553c]/10 text-[#2d553c] dark:text-[#5b8a6c]">
                 Today
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Auto-scheduled timeline fitting inbox items around fixed commitments.
+          <p className="text-xs text-[#6b6760] dark:text-[#9e998f] mt-0.5">
+            Pacing timeline fitting study goals around your fixed commitments.
           </p>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Date Navigator */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex items-center bg-[#f4f2ee] dark:bg-[#282623] rounded-lg p-0.5 border border-[#e2ded5] dark:border-[#383530] text-xs">
             <button
               onClick={() => handleDateChange(-1)}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
+              className="p-1 rounded text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] cursor-pointer"
               title="Previous Day"
+              aria-label="Previous Day"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             {!isToday && (
               <button
                 onClick={() => setSelectedDate(getTodayStr())}
-                className="px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+                className="px-2 py-0.5 text-xs font-medium text-[#2d553c] dark:text-[#5b8a6c] hover:bg-[#ffffff] dark:hover:bg-[#1f1e1d] rounded cursor-pointer"
               >
                 Today
               </button>
@@ -231,44 +212,46 @@ export default function TimelineView({ onCompleteItem, onToast }) {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-1 text-xs bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+              className="px-1 text-xs bg-transparent text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none cursor-pointer"
             />
             <button
               onClick={() => handleDateChange(1)}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
+              className="p-1 rounded text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] cursor-pointer"
               title="Next Day"
+              aria-label="Next Day"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Trigger Auto-Scheduler */}
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleRunScheduler}
             disabled={isScheduling}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
           >
             {isScheduling ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5" />
+              <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
             )}
             <span>{isScheduling ? 'Scheduling...' : 'Auto-Schedule'}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Unplaceable Items Warning Banner */}
       {unplaceableItems.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 space-y-2">
-          <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
+        <div className="bg-[#7d3b2b]/10 border border-[#7d3b2b]/20 rounded-xl p-3 text-xs text-[#7d3b2b] dark:text-[#d48372] space-y-1.5">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{unplaceableItems.length} item(s) could not fit today</span>
           </div>
-          <p className="text-[11px] text-amber-700 dark:text-amber-400">
-            These items exceed the remaining free time intervals or break buffers today. They remain safely in your inbox for tomorrow:
+          <p className="text-[11px] text-[#6b6760] dark:text-[#9e998f]">
+            These exceed remaining open windows today. They remain safely in your inbox for tomorrow:
           </p>
-          <ul className="list-disc list-inside space-y-1 pl-1">
+          <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
             {unplaceableItems.map((it) => (
               <li key={it.id} className="truncate">
                 <strong>{it.raw_text}</strong> ({it.est_duration_min || 30}m)
@@ -281,30 +264,30 @@ export default function TimelineView({ onCompleteItem, onToast }) {
       {/* Timeline Stream */}
       <div className="space-y-2 pt-1">
         {isLoading ? (
-          <div className="py-16 text-center text-slate-400 text-sm">
-            <Clock className="w-6 h-6 mx-auto animate-spin mb-2 opacity-50" />
-            Loading day schedule...
+          <div className="space-y-3 py-4">
+            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         ) : timelineItems.length > 0 ? (
           timelineItems.map((entry) => {
-            // 1. Routine block
             if (entry.type === 'routine') {
               return (
                 <div
                   key={entry.id}
-                  className="flex items-center gap-3 bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 text-xs text-slate-600 dark:text-slate-400"
+                  className="flex items-center gap-3 bg-[#f4f2ee]/60 dark:bg-[#282623]/60 border border-[#e2ded5] dark:border-[#383530] rounded-xl p-3 text-xs text-[#6b6760] dark:text-[#9e998f]"
                 >
-                  <div className="w-24 shrink-0 font-mono font-semibold text-slate-500 text-[11px]">
+                  <div className="w-24 shrink-0 font-mono font-medium text-[11px]">
                     {entry.startTime} – {entry.endTime}
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="p-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-500">
-                      <Lock className="w-3.5 h-3.5" />
+                    <span className="p-1 rounded bg-[#e2ded5]/60 dark:bg-[#383530] text-[#6b6760] dark:text-[#9e998f]">
+                      <Lock className="w-3 h-3" />
                     </span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    <span className="font-medium text-[#1f1e1d] dark:text-[#ebe8e2] truncate">
                       {entry.label}
                     </span>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-500">
+                    <span className="text-[10px] font-medium tracking-wide px-1.5 py-0.2 rounded bg-[#e2ded5]/40 dark:bg-[#383530]/60 text-[#6b6760] dark:text-[#9e998f]">
                       Routine
                     </span>
                   </div>
@@ -312,40 +295,40 @@ export default function TimelineView({ onCompleteItem, onToast }) {
               );
             }
 
-            // 2. Scheduled Task slot
             if (entry.type === 'slot') {
               const item = entry.item;
               const isDone = item?.status === 'done';
               return (
                 <div
                   key={entry.id}
-                  className={`flex items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border rounded-xl p-3.5 shadow-xs transition-all ${
+                  className={`flex items-start sm:items-center justify-between gap-3 bg-[#ffffff] dark:bg-[#1f1e1d] border rounded-xl p-3.5 shadow-xs transition-all ${
                     isDone
-                      ? 'border-slate-200 dark:border-slate-800 opacity-60 bg-slate-50/50'
-                      : 'border-indigo-100 dark:border-indigo-950/80 hover:border-indigo-300'
+                      ? 'border-[#e2ded5]/60 dark:border-[#383530]/60 opacity-60 bg-[#f4f2ee]/40'
+                      : 'border-[#2d553c]/30 dark:border-[#5b8a6c]/30 hover:border-[#2d553c]'
                   }`}
                 >
                   <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-                    <div className="w-24 shrink-0 font-mono font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                    <div className="w-24 shrink-0 font-mono font-semibold text-[#2d553c] dark:text-[#5b8a6c] text-xs">
                       {entry.startTime} – {entry.endTime}
                     </div>
 
                     <button
                       onClick={() => item && onCompleteItem(item)}
-                      className="mt-0.5 sm:mt-0 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shrink-0 focus:outline-none"
+                      className="mt-0.5 sm:mt-0 text-[#6b6760] hover:text-[#2d553c] dark:hover:text-[#5b8a6c] transition-colors cursor-pointer shrink-0 focus:outline-none"
                       title={isDone ? 'Done' : 'Mark done'}
+                      aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
                     >
                       {isDone ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        <CheckCircle2 className="w-5 h-5 text-[#2d553c] dark:text-[#5b8a6c]" />
                       ) : (
-                        <Circle className="w-5 h-5 hover:scale-110 transition-transform" />
+                        <Circle className="w-5 h-5 hover:scale-105 transition-transform" />
                       )}
                     </button>
 
                     <div className="flex-1 min-w-0">
                       <p
-                        className={`text-sm font-semibold text-slate-900 dark:text-slate-100 truncate ${
-                          isDone ? 'line-through text-slate-400' : ''
+                        className={`text-sm font-medium text-[#1f1e1d] dark:text-[#ebe8e2] truncate ${
+                          isDone ? 'line-through text-[#6b6760] dark:text-[#9e998f]' : ''
                         }`}
                       >
                         {item ? item.raw_text : 'Task'}
@@ -353,27 +336,19 @@ export default function TimelineView({ onCompleteItem, onToast }) {
 
                       <div className="flex items-center gap-1.5 mt-1 text-[10px]">
                         {item?.category && (
-                          <span
-                            className={`px-1.5 py-0.2 rounded-full font-medium border capitalize ${
-                              categoryStyles[item.category] || 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
+                          <Badge variant={item.category}>
                             {item.category}
-                          </span>
+                          </Badge>
                         )}
 
                         {item?.priority && (
-                          <span
-                            className={`px-1.5 py-0.2 rounded font-semibold ${
-                              priorityStyles[item.priority] || 'bg-slate-400 text-white'
-                            }`}
-                          >
+                          <Badge variant={item.priority >= 4 ? 'priority-high' : 'priority-mid'}>
                             P{item.priority}
-                          </span>
+                          </Badge>
                         )}
 
                         {item?.est_duration_min && (
-                          <span className="text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[#6b6760] dark:text-[#9e998f] flex items-center gap-0.5">
                             <Clock className="w-3 h-3" />
                             {item.est_duration_min}m
                           </span>
@@ -385,19 +360,18 @@ export default function TimelineView({ onCompleteItem, onToast }) {
               );
             }
 
-            // 3. Free time interval
             if (entry.type === 'free') {
               return (
                 <div
                   key={entry.id}
-                  className="flex items-center gap-3 px-4 py-2 border border-dashed border-slate-200 dark:border-slate-800/80 rounded-xl text-xs text-slate-400"
+                  className="flex items-center gap-3 px-3 py-1.5 border border-dashed border-[#e2ded5] dark:border-[#383530] rounded-lg text-xs text-[#9e998f]"
                 >
-                  <div className="w-24 shrink-0 font-mono text-[11px] text-slate-400">
+                  <div className="w-24 shrink-0 font-mono text-[11px] text-[#9e998f]">
                     {entry.startTime} – {entry.endTime}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>Free slot ({entry.durationMin}m available)</span>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#6b6760] dark:text-[#9e998f]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2d553c]" />
+                    <span>Free slot ({entry.durationMin}m open)</span>
                   </div>
                 </div>
               );
@@ -406,28 +380,15 @@ export default function TimelineView({ onCompleteItem, onToast }) {
             return null;
           })
         ) : (
-          <div className="text-center py-16 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center mb-3">
-              <CalendarDays className="w-6 h-6" />
-            </div>
-            <h3 className="text-slate-800 dark:text-slate-200 font-semibold text-base mb-1">
-              No tasks scheduled for {formattedDateTitle}
-            </h3>
-            <p className="text-slate-400 text-xs max-w-sm mx-auto mb-4">
-              Click "Auto-Schedule" above to greedily fit your inbox items into today's open windows.
-            </p>
-            <button
-              onClick={handleRunScheduler}
-              disabled={isScheduling}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Auto-Schedule {isToday ? 'Today' : 'This Day'}</span>
-            </button>
-          </div>
+          <EmptyState
+            icon={CalendarDays}
+            title={`No tasks scheduled for ${formattedDateTitle}`}
+            description="Click 'Auto-Schedule' to fit your inbox items into today's open windows around your classes and commitments."
+            actionLabel={isScheduling ? 'Scheduling...' : `Auto-Schedule ${isToday ? 'Today' : 'This Day'}`}
+            onAction={handleRunScheduler}
+          />
         )}
       </div>
     </div>
   );
 }
-

@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Lock, AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
+import { Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { changePassword } from '../api/auth';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
 
-export default function ChangePasswordModal({ isOpen, isMandatory = false, onClose, onSuccess }) {
+export default function ChangePasswordModal({
+  isOpen,
+  isMandatory = false,
+  onClose,
+  onSuccess,
+}) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,43 +51,29 @@ export default function ChangePasswordModal({ isOpen, isMandatory = false, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-150">
-        {!isMandatory && onClose && (
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Lock className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              {isMandatory ? 'Set New Password' : 'Change Password'}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {isMandatory
-                ? 'Your account requires updating your password before continuing.'
-                : 'Choose a strong password of at least 8 characters.'}
-            </p>
-          </div>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={isMandatory ? () => {} : onClose}
+      title={isMandatory ? 'Set New Password' : 'Change Password'}
+      maxWidth="max-w-md"
+    >
+      <div className="space-y-4 text-xs">
+        <p className="text-[#6b6760] dark:text-[#9e998f]">
+          {isMandatory
+            ? 'Your account requires updating your password before continuing.'
+            : 'Choose a strong password of at least 8 characters.'}
+        </p>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
+          <div className="p-3 rounded-lg bg-[#7d3b2b]/10 border border-[#7d3b2b]/20 flex items-start gap-2 text-xs text-[#7d3b2b] dark:text-[#d48372]">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="leading-relaxed">{error}</div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
               Current Password
             </label>
             <input
@@ -89,26 +82,27 @@ export default function ChangePasswordModal({ isOpen, isMandatory = false, onClo
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-[#e2ded5] dark:border-[#383530] bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
               New Password
             </label>
             <input
               type="password"
               required
+              minLength={8}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-[#e2ded5] dark:border-[#383530] bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
               Confirm New Password
             </label>
             <input
@@ -116,43 +110,34 @@ export default function ChangePasswordModal({ isOpen, isMandatory = false, onClo
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Repeat new password"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+              placeholder="••••••••"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-[#e2ded5] dark:border-[#383530] bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#e2ded5] dark:border-[#383530]">
             {!isMandatory && onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isLoading}
-                className="px-3.5 py-2 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
+              <Button type="button" variant="ghost" onClick={onClose}>
                 Cancel
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={isLoading}
-              className="px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
                   <span>Updating...</span>
                 </>
               ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Update Password</span>
-                </>
+                <span>Update Password</span>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }
-

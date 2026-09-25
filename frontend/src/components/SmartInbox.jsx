@@ -6,10 +6,11 @@ import {
   ArrowUpDown,
   Search,
   CheckCircle,
-  Clock,
-  Sparkles,
   Layers,
+  Inbox as EmptyInboxIcon,
 } from 'lucide-react';
+import Skeleton from './ui/Skeleton';
+import EmptyState from './ui/EmptyState';
 
 export default function SmartInbox({
   items,
@@ -22,9 +23,8 @@ export default function SmartInbox({
 }) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'priority', 'duration_asc', 'duration_desc', 'deadline'
+  const [sortBy, setSortBy] = useState('newest');
 
-  // Categories config
   const categories = [
     { id: 'all', label: 'All' },
     { id: 'task', label: 'Tasks' },
@@ -33,11 +33,9 @@ export default function SmartInbox({
     { id: 'deadline', label: 'Deadlines' },
   ];
 
-  // Filtering & sorting logic
   const filteredAndSortedItems = useMemo(() => {
     let result = [...items];
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -47,12 +45,10 @@ export default function SmartInbox({
       );
     }
 
-    // Filter by category
     if (categoryFilter !== 'all') {
       result = result.filter((it) => it.category === categoryFilter);
     }
 
-    // Sort
     result.sort((a, b) => {
       if (sortBy === 'newest') {
         return new Date(b.created_at) - new Date(a.created_at);
@@ -85,22 +81,22 @@ export default function SmartInbox({
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4">
-      {/* Top Bar: Tabs & Counters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+      {/* Top Bar: Tabs & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e2ded5] dark:border-[#383530] pb-3">
         {/* Status navigation */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-medium">
+        <div className="flex items-center gap-1 bg-[#f4f2ee] dark:bg-[#282623] p-1 rounded-xl text-xs font-medium border border-[#e2ded5] dark:border-[#383530]">
           <button
             onClick={() => setStatusFilter('inbox')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               statusFilter === 'inbox'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#2d553c] dark:text-[#5b8a6c] shadow-xs font-semibold'
+                : 'text-[#6b6760] dark:text-[#9e998f] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2]'
             }`}
           >
             <Inbox className="w-3.5 h-3.5" />
             <span>Inbox</span>
             {statusFilter === 'inbox' && (
-              <span className="px-1.5 py-0.2 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 text-[10px]">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#2d553c]/10 text-[#2d553c] dark:text-[#5b8a6c] text-[10px] font-semibold">
                 {items.length}
               </span>
             )}
@@ -108,10 +104,10 @@ export default function SmartInbox({
 
           <button
             onClick={() => setStatusFilter('done')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               statusFilter === 'done'
-                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#2d553c] dark:text-[#5b8a6c] shadow-xs font-semibold'
+                : 'text-[#6b6760] dark:text-[#9e998f] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2]'
             }`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
@@ -120,10 +116,10 @@ export default function SmartInbox({
 
           <button
             onClick={() => setStatusFilter(null)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               statusFilter === null
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'bg-[#ffffff] dark:bg-[#1f1e1d] text-[#1f1e1d] dark:text-[#ebe8e2] shadow-xs font-semibold'
+                : 'text-[#6b6760] dark:text-[#9e998f] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -133,13 +129,13 @@ export default function SmartInbox({
 
         {/* Search input */}
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#9e998f]" />
           <input
             type="text"
             placeholder="Search items or #tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl placeholder-slate-400 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg placeholder-[#9e998f] text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
           />
         </div>
       </div>
@@ -148,7 +144,7 @@ export default function SmartInbox({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         {/* Category filter pills */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-slate-400 text-xs mr-1 flex items-center gap-1">
+          <span className="text-[#6b6760] dark:text-[#9e998f] text-xs mr-1 flex items-center gap-1">
             <Filter className="w-3 h-3" /> Category:
           </span>
           {categories.map((cat) => (
@@ -157,8 +153,8 @@ export default function SmartInbox({
               onClick={() => setCategoryFilter(cat.id)}
               className={`px-2.5 py-1 rounded-lg border transition-colors cursor-pointer text-xs ${
                 categoryFilter === cat.id
-                  ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-medium'
-                  : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'border-[#2d553c] bg-[#2d553c]/10 text-[#2d553c] dark:border-[#5b8a6c] dark:text-[#ebe8e2] font-semibold'
+                  : 'border-[#e2ded5] dark:border-[#383530] bg-[#ffffff] dark:bg-[#1f1e1d] text-[#6b6760] dark:text-[#9e998f] hover:border-[#b8b3a7]'
               }`}
             >
               {cat.label}
@@ -167,13 +163,13 @@ export default function SmartInbox({
         </div>
 
         {/* Sort dropdown */}
-        <div className="flex items-center gap-1.5 text-slate-500">
+        <div className="flex items-center gap-1.5 text-[#6b6760] dark:text-[#9e998f]">
           <ArrowUpDown className="w-3 h-3" />
           <span className="text-xs">Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+            className="bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg px-2 py-1 text-xs text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none cursor-pointer"
           >
             <option value="newest">Newest first</option>
             <option value="priority">Highest priority</option>
@@ -187,9 +183,10 @@ export default function SmartInbox({
       {/* Item list */}
       <div className="space-y-2.5 pt-2">
         {isLoading ? (
-          <div className="py-16 text-center text-slate-400 text-sm">
-            <Clock className="w-6 h-6 mx-auto animate-spin mb-2 opacity-50" />
-            Loading inbox...
+          <div className="space-y-3 py-4">
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
           </div>
         ) : filteredAndSortedItems.length > 0 ? (
           filteredAndSortedItems.map((item) => (
@@ -202,26 +199,23 @@ export default function SmartInbox({
             />
           ))
         ) : (
-          <div className="py-16 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center mb-3">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <h3 className="text-slate-800 dark:text-slate-200 font-semibold text-base mb-1">
-              {searchQuery || categoryFilter !== 'all'
+          <EmptyState
+            icon={EmptyInboxIcon}
+            title={
+              searchQuery || categoryFilter !== 'all'
                 ? 'No matching items'
                 : statusFilter === 'done'
                 ? 'No completed items yet'
-                : 'Inbox is clear!'}
-            </h3>
-            <p className="text-slate-400 text-xs max-w-sm mx-auto">
-              {searchQuery || categoryFilter !== 'all'
+                : 'Inbox is clear'
+            }
+            description={
+              searchQuery || categoryFilter !== 'all'
                 ? 'Try adjusting your search query or filter chips.'
-                : 'Use the quick capture bar above to capture your next fleeting thought or task.'}
-            </p>
-          </div>
+                : 'Dump thoughts, ideas, or study goals above. MindFlow will categorize and prioritize them for you.'
+            }
+          />
         )}
       </div>
     </div>
   );
 }
-

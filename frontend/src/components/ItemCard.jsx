@@ -7,32 +7,28 @@ import {
   Tag,
   Trash2,
   Edit3,
-  AlertCircle,
-  Sparkles,
+  MoreVertical,
+  Check,
 } from 'lucide-react';
+import Badge from './ui/Badge';
+import DropdownMenu from './ui/DropdownMenu';
 
-export default function ItemCard({ item, onComplete, onEdit, onDelete }) {
+export default function ItemCard({
+  item,
+  onComplete,
+  onEdit,
+  onDelete,
+}) {
   const isDone = item.status === 'done';
-
-  const categoryStyles = {
-    task: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-900',
-    idea: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-900',
-    reminder: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-900',
-    deadline: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900',
-  };
-
-  const priorityStyles = {
-    5: 'bg-red-500 text-white',
-    4: 'bg-orange-500 text-white',
-    3: 'bg-yellow-500 text-white',
-    2: 'bg-blue-400 text-white',
-    1: 'bg-slate-400 text-white',
-  };
 
   const formatDeadline = (iso) => {
     if (!iso) return null;
     try {
       const d = new Date(iso);
+      const isToday = new Date().toDateString() === d.toDateString();
+      if (isToday) {
+        return `Today ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      }
       return d.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -44,12 +40,31 @@ export default function ItemCard({ item, onComplete, onEdit, onDelete }) {
     }
   };
 
+  const menuItems = [
+    {
+      label: 'Edit details',
+      icon: Edit3,
+      onClick: () => onEdit(item),
+    },
+    {
+      label: isDone ? 'Mark as active' : 'Complete task',
+      icon: isDone ? Circle : Check,
+      onClick: () => onComplete(item),
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      danger: true,
+      onClick: () => onDelete(item.id),
+    },
+  ];
+
   return (
     <div
-      className={`group relative bg-white dark:bg-slate-900 border rounded-xl p-4 transition-all duration-150 hover:shadow-sm ${
+      className={`group relative bg-[#ffffff] dark:bg-[#1f1e1d] border rounded-xl p-3.5 sm:p-4 transition-all ${
         isDone
-          ? 'border-slate-200 dark:border-slate-800 opacity-60 bg-slate-50/50 dark:bg-slate-900/50'
-          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+          ? 'border-[#e2ded5]/60 dark:border-[#383530]/60 opacity-60 bg-[#f4f2ee]/40 dark:bg-[#282623]/40'
+          : 'border-[#e2ded5] dark:border-[#383530] hover:border-[#b8b3a7] dark:hover:border-[#524d45] hover:shadow-xs'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -57,21 +72,21 @@ export default function ItemCard({ item, onComplete, onEdit, onDelete }) {
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <button
             onClick={() => onComplete(item)}
-            className="mt-0.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shrink-0 focus:outline-none"
+            className="mt-0.5 text-[#6b6760] hover:text-[#2d553c] dark:hover:text-[#5b8a6c] transition-colors cursor-pointer shrink-0 focus:outline-none"
             title={isDone ? 'Completed' : 'Mark as done'}
             aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
           >
             {isDone ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 className="w-5 h-5 text-[#2d553c] dark:text-[#5b8a6c]" />
             ) : (
-              <Circle className="w-5 h-5 hover:scale-110 transition-transform" />
+              <Circle className="w-5 h-5 hover:scale-105 transition-transform" />
             )}
           </button>
 
           <div className="flex-1 min-w-0">
             <p
-              className={`text-slate-900 dark:text-slate-100 font-medium text-base break-words ${
-                isDone ? 'line-through text-slate-500 dark:text-slate-400' : ''
+              className={`text-[#1f1e1d] dark:text-[#ebe8e2] font-medium text-sm sm:text-base break-words leading-snug ${
+                isDone ? 'line-through text-[#6b6760] dark:text-[#9e998f]' : ''
               }`}
             >
               {item.raw_text}
@@ -80,54 +95,44 @@ export default function ItemCard({ item, onComplete, onEdit, onDelete }) {
             {/* Badges / metadata */}
             <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs">
               {item.category ? (
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium border text-[11px] capitalize ${
-                    categoryStyles[item.category] || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
+                <Badge variant={item.category}>
                   {item.category}
-                </span>
+                </Badge>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 text-[11px] border border-indigo-200 dark:border-indigo-800/80 animate-pulse">
-                  <Sparkles className="w-3 h-3 text-indigo-500 animate-spin" />
-                  Classifying...
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f4f2ee] dark:bg-[#282623] text-[#6b6760] dark:text-[#9e998f] border border-[#e2ded5] dark:border-[#383530]">
+                  Categorizing...
                 </span>
               )}
 
               {item.priority && (
-                <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${
-                    priorityStyles[item.priority] || 'bg-slate-400 text-white'
-                  }`}
-                  title={`Priority ${item.priority}/5`}
-                >
+                <Badge variant={item.priority >= 4 ? 'priority-high' : 'priority-mid'}>
                   P{item.priority}
-                </span>
+                </Badge>
               )}
 
               {item.est_duration_min && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px]">
-                  <Clock className="w-3 h-3 text-slate-400" />
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-[#f4f2ee] dark:bg-[#282623] text-[#6b6760] dark:text-[#9e998f]">
+                  <Clock className="w-3 h-3 text-[#6b6760]" />
                   {item.est_duration_min}m
                 </span>
               )}
 
               {item.deadline && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-[11px]">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-[#7d3b2b]/10 text-[#7d3b2b] dark:text-[#d48372]">
                   <Calendar className="w-3 h-3" />
                   {formatDeadline(item.deadline)}
                 </span>
               )}
 
               {item.topic_tag && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px]">
-                  <Tag className="w-3 h-3 text-slate-400" />
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-[#f4f2ee] dark:bg-[#282623] text-[#6b6760] dark:text-[#9e998f]">
+                  <Tag className="w-3 h-3 opacity-60" />
                   #{item.topic_tag}
                 </span>
               )}
 
               {item.status && item.status !== 'inbox' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-[#f4f2ee] dark:bg-[#282623] text-[#6b6760] dark:text-[#9e998f] border border-[#e2ded5] dark:border-[#383530]">
                   {item.status}
                 </span>
               )}
@@ -135,27 +140,31 @@ export default function ItemCard({ item, onComplete, onEdit, onDelete }) {
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+        {/* Right: Contextual menu */}
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onEdit(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] hover:bg-[#f4f2ee] dark:hover:bg-[#282623] transition-colors cursor-pointer"
             title="Edit item"
             aria-label="Edit item"
           >
             <Edit3 className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-            title="Delete item"
-            aria-label="Delete item"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <DropdownMenu
+            trigger={
+              <button
+                type="button"
+                className="p-1 rounded-lg text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] hover:bg-[#f4f2ee] dark:hover:bg-[#282623] transition-colors cursor-pointer"
+                title="More actions"
+                aria-label="More actions"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            }
+            items={menuItems}
+          />
         </div>
       </div>
     </div>
   );
 }
-
