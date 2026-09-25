@@ -2,7 +2,7 @@ import datetime as dt
 from typing import Optional, Literal, List, Dict
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-CategoryType = Literal["task", "idea", "reminder", "deadline"]
+CategoryType = Literal["task", "idea", "reminder", "deadline", "study", "project_idea", "question", "note", "random_thought"]
 StatusType = Literal["inbox", "scheduled", "done", "skipped"]
 
 
@@ -94,6 +94,7 @@ class RoutineBlockResponse(BaseModel):
 # --- User Preferences Schemas ---
 
 class UserPrefsUpdate(BaseModel):
+    timezone: Optional[str] = Field(None, min_length=1, max_length=64, description="IANA timezone, e.g. Asia/Kolkata")
     preferred_deep_hours: Optional[List[str]] = Field(
         None,
         description="Preferred focus windows in HH:MM-HH:MM format, e.g. ['09:00-11:00']"
@@ -115,6 +116,7 @@ class UserPrefsResponse(BaseModel):
     preferred_deep_hours: List[str] = []
     break_duration_pref: int = 10
     category_duration_multiplier: Dict[str, float] = {}
+    timezone: str = "UTC"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -259,5 +261,4 @@ class TokenResponse(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8, description="New password, minimum 8 characters")
-
 

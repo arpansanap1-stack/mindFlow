@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import auth, admin, items, routine, schedule, feedback, suggest
+from app.routers import auth, admin, items, routine, schedule, feedback, suggest, ai
 from app import crud
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ app.include_router(routine.router)
 app.include_router(schedule.router)
 app.include_router(feedback.router)
 app.include_router(suggest.router)
+app.include_router(ai.router)
 
 
 @app.get("/health", tags=["system"])

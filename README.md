@@ -10,6 +10,7 @@ Built with React, FastAPI, and PostgreSQL—no account or hosted service is requ
 
 - **Quick capture** — add a task, reminder, deadline, or idea without filling out a form.
 - **Smart classification** — extracts category, priority, duration, deadline, and topic with a layered rules → local embeddings → optional Gemini fallback pipeline.
+- **AI intelligence (optional)** — Gemini structured interpretation, project-plan previews, grounded assistant tools, semantic item search, and evidence-based productivity insights. Core capture and scheduling continue working without it.
 - **Smart inbox** — review, filter, edit, complete, or delete captured items.
 - **Routine-aware planning** — add fixed weekly commitments, preferred focus windows, and a break preference.
 - **Automatic scheduling** — ranks inbox items by urgency and places them in available time without forcing items that do not fit.
@@ -130,15 +131,18 @@ npm run dev
 
 Open <http://127.0.0.1:5173>. In development, Vite proxies `/api` requests to the FastAPI server.
 
-### Optional: enable Gemini fallback
+### Optional: enable Gemini intelligence
 
 Rules and local embeddings work without a key. To enable the final classification fallback, add your API key to `.env`:
 
 ```env
 GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_TIMEOUT_SECONDS=12
 ```
 
-`.env` is ignored by Git. If no key is configured, uncertain captures safely retain the best result from the local pipeline.
+`.env` is ignored by Git and is never served to the React client. The model names are configuration values rather than business-logic constants; choose a currently supported model approved for your Gemini account. If no key is configured or Gemini fails, capture safely retains the deterministic/local result. Set the authenticated user's IANA timezone through `PATCH /prefs` (for example `{"timezone":"Asia/Kolkata"}`) before relying on relative dates.
 
 ## Database migrations
 
@@ -191,6 +195,11 @@ alembic current
 | `POST` | `/suggest/action` | Record whether a suggestion was accepted or dismissed |
 | `GET` | `/feedback/stats` | View feedback and duration statistics |
 | `POST` | `/feedback/recalibrate` | Update duration multipliers from completed work |
+| `POST` | `/ai/interpret` | Validated Gemini interpretation; deterministic fallback on outage |
+| `POST` | `/ai/chat` | Grounded assistant with authenticated, scoped tools; confirmation token for deletes |
+| `POST` | `/ai/decompose` | Preview a project decomposition; never creates tasks automatically |
+| `POST` | `/ai/search` | User-scoped semantic item search with bounded lazy indexing |
+| `POST` | `/ai/insights` | Grounded interpretation of server-computed metrics |
 
 ## Development
 

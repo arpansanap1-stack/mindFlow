@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 import dateparser
 from app.config import settings
 from app.classification.types import ClassificationResult, CategoryType
+from app.services.gemini.client import GeminiClient, GeminiUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +65,9 @@ def classify_by_llm(
             layer_used="llm_skipped",
         )
 
-    model_name = model or getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = model or settings.GEMINI_MODEL
 
     try:
-        if client is None:
-            from google import genai
-            from google.genai import types
-
-            client = genai.Client(api_key=key)
-        else:
-            from google.genai import types
-
         prompt = f"""You are the classification engine for MindFlow, a personal task and thought management system.
 Classify the following user capture into structured fields.
 Reference datetime: {datetime.now().isoformat()}
@@ -83,18 +76,9 @@ User capture:
 "{text}"
 """
 
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_json_schema=LLMClassificationSchema.model_json_schema(),
-                temperature=0.1,
-            ),
-        )
-
-        response_text = response.text if hasattr(response, "text") else str(response)
-        parsed = json.loads(response_text)
+        parsed = GeminiClient(api_key=key, client=client, model=model_name).generate_structured(
+            prompt, LLMClassificationSchema
+        ).model_dump()
 
         # Parse and sanitize category
         raw_cat = str(parsed.get("category", "idea")).lower().strip()
@@ -150,8 +134,9 @@ User capture:
             layer_used="llm",
         )
 
-    except Exception as e:
-        logger.warning(f"Gemini LLM classification failed: {e}; falling back to previous layer.")
+    except (GeminiUnavailable, Exception) as e:
+        # Deliberately do not log input, API keys, or raw model output.
+        logger.warning("Gemini LLM classification unavailable; falling back to previous layer.")
         if partial_result:
             return partial_result
         return ClassificationResult(
@@ -161,4 +146,3 @@ User capture:
             confidence=0.0,
             layer_used="llm_failed",
         )
-

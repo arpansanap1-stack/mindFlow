@@ -46,6 +46,7 @@ class User(Base):
     schedule_slots = relationship("ScheduleSlot", back_populates="user", cascade="all, delete-orphan")
     feedback_logs = relationship("FeedbackLog", back_populates="user", cascade="all, delete-orphan")
     prefs = relationship("UserPrefs", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    semantic_embeddings = relationship("SemanticEmbedding", back_populates="user", cascade="all, delete-orphan")
 
 
 class Item(Base):
@@ -64,7 +65,7 @@ class Item(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "category IN ('task', 'idea', 'reminder', 'deadline')",
+            "category IN ('task', 'idea', 'reminder', 'deadline', 'study', 'project_idea', 'question', 'note', 'random_thought')",
             name="check_item_category",
         ),
         CheckConstraint(
@@ -160,5 +161,33 @@ class UserPrefs(Base):
     preferred_deep_hours = Column(Text, nullable=True)         # JSON e.g. ["09:00-11:00"]
     break_duration_pref = Column(Integer, nullable=False, default=10, server_default=text("10"))
     category_duration_multiplier = Column(Text, nullable=True) # JSON e.g. {"study": 1.4}
+    timezone = Column(String(64), nullable=False, default="UTC", server_default="UTC")
 
     user = relationship("User", back_populates="prefs")
+
+
+class SemanticEmbedding(Base):
+    """User-scoped cache of externally generated embeddings.
+
+    PostgreSQL vector extensions are intentionally not required; keeping the
+    vector as JSON lets this focused app use semantic search immediately and
+    leaves a later pgvector migration as an optimization, not an architecture
+    dependency.
+    """
+    __tablename__ = "semantic_embeddings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    entity_type = Column(String(32), nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    embedding_json = Column(Text, nullable=False)
+    model = Column(String(128), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("entity_type IN ('item')", name="check_embedding_entity_type"),
+    )
+
+    user = relationship("User", back_populates="semantic_embeddings")

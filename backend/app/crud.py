@@ -425,6 +425,7 @@ def _user_prefs_to_response(prefs: UserPrefs) -> UserPrefsResponse:
         preferred_deep_hours=preferred_deep_hours,
         break_duration_pref=prefs.break_duration_pref,
         category_duration_multiplier=category_duration_multiplier,
+        timezone=prefs.timezone or "UTC",
     )
 
 
@@ -466,6 +467,10 @@ def update_user_prefs(
         prefs.break_duration_pref = prefs_in.break_duration_pref
     if prefs_in.category_duration_multiplier is not None:
         prefs.category_duration_multiplier = json.dumps(prefs_in.category_duration_multiplier)
+    if prefs_in.timezone is not None:
+        # ZoneInfo is checked at the API boundary. Persist only the canonical
+        # user choice; no request supplied user ID is ever involved.
+        prefs.timezone = prefs_in.timezone
 
     db.commit()
     db.refresh(prefs)

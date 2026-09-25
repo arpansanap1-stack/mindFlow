@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Optional
+from datetime import timezone
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -29,6 +31,9 @@ def get_now_suggestion(
     'What should I do now?'
     Returns the top-ranked item or status for the current user's time context.
     """
+    if now is None:
+        tz_name = crud.get_or_create_user_prefs(db, user_id=current_user.id).timezone
+        now = datetime.now(timezone.utc).astimezone(ZoneInfo(tz_name))
     return crud.get_now_suggestion(db=db, user_id=current_user.id, now=now)
 
 

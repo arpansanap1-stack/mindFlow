@@ -1,4 +1,5 @@
 from typing import List, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
 
@@ -95,4 +96,9 @@ def update_user_preferences(
     current_user: User = Depends(get_current_active_user),
 ):
     """Update user preferences for the authenticated user."""
+    if prefs_in.timezone is not None:
+        try:
+            ZoneInfo(prefs_in.timezone)
+        except ZoneInfoNotFoundError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="timezone must be a valid IANA timezone")
     return crud.update_user_prefs(db=db, prefs_in=prefs_in, user_id=current_user.id)

@@ -7,6 +7,9 @@ from app.models import User
 from app.schemas import ItemCreate, ItemUpdate, ItemComplete, ItemResponse, StatusType
 from app.auth import get_current_active_user
 import app.crud as crud
+from app.services.gemini.assistant import local_now, user_timezone
+from app.services.gemini.client import GeminiUnavailable
+from app.services.gemini.task_parser import fallback_interpretation, interpret_task
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -20,8 +23,37 @@ def create_item(
 ):
     """
     Create a new item owned by the authenticated user.
-    Runs fast classification pipeline. If ambiguous, dispatches async LLM fallback.
+    Uses structured Gemini interpretation when configured, then validates it
+    through ItemCreate and existing CRUD. The deterministic classifier remains
+    the fallback, so capture is never dependent on Gemini availability.
     """
+    if item_in.category is None:
+        try:
+            parsed = interpret_task(
+                item_in.raw_text,
+                user_timezone(db, current_user.id),
+                local_now(db, current_user.id),
+            )
+            item_in = item_in.model_copy(update={
+                "category": parsed.category,
+                "priority": item_in.priority if item_in.priority is not None else {"low": 2, "medium": 3, "high": 4, "urgent": 5}[parsed.priority],
+                "est_duration_min": item_in.est_duration_min if item_in.est_duration_min is not None else parsed.estimated_minutes,
+                "deadline": item_in.deadline if item_in.deadline is not None else parsed.deadline,
+            })
+        except GeminiUnavailable:
+            # The local pipeline receives the same authenticated-user local
+            # reference time, so "tomorrow" remains correct during an outage.
+            parsed = fallback_interpretation(
+                item_in.raw_text,
+                user_timezone(db, current_user.id),
+                local_now(db, current_user.id),
+            )
+            item_in = item_in.model_copy(update={
+                "category": parsed.category,
+                "priority": item_in.priority if item_in.priority is not None else {"low": 2, "medium": 3, "high": 4, "urgent": 5}[parsed.priority],
+                "est_duration_min": item_in.est_duration_min if item_in.est_duration_min is not None else parsed.estimated_minutes,
+                "deadline": item_in.deadline if item_in.deadline is not None else parsed.deadline,
+            })
     item, needs_async_llm = crud.create_item_with_flag(db=db, item_in=item_in, user_id=current_user.id)
     if needs_async_llm:
         background_tasks.add_task(crud.async_classify_item, item_id=item.id)
