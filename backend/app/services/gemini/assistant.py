@@ -16,7 +16,7 @@ from app.scheduler.algorithm import minutes_to_time, subtract_intervals, time_to
 from .client import GeminiClient, GeminiUnavailable
 from .prompts import ASSISTANT_PROMPT
 
-CONFIRMATION_ACTIONS = {"delete_task"}
+CONFIRMATION_ACTIONS = {"delete_task", "clear_schedule"}
 
 
 def user_timezone(db: Session, user_id: int) -> str:
@@ -60,6 +60,16 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session, current_user
     # choose the database scope of an AI action.
     arguments = {key: value for key, value in arguments.items() if key not in {"user_id", "owner_id", "account_id"}}
     if name in CONFIRMATION_ACTIONS and not allow_confirmed:
+        if name == "clear_schedule":
+            target = date.fromisoformat(arguments.get("date") or local_now(db, user_id).date().isoformat())
+            count = db.query(ScheduleSlot).filter(ScheduleSlot.user_id == user_id, ScheduleSlot.date == target).count()
+            return {
+                "ok": False,
+                "requires_confirmation": True,
+                "action": name,
+                "arguments": {"date": target.isoformat()},
+                "summary": f"Clear {count} scheduled slots for {target.isoformat()}?"
+            }
         item = _resolve_item(db, user_id, arguments.get("task"))
         if not item:
             return {"ok": False, "error": "Task was not found or was ambiguous."}
@@ -137,6 +147,51 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session, current_user
         item.status = "scheduled"
         db.commit()
         return {"ok": True, "task": _item_payload(item), "scheduled_for": f"{target.isoformat()} {start.strftime('%H:%M')}"}
+    if name == "update_task":
+        item = _resolve_item(db, user_id, arguments.get("task"))
+        if not item:
+            return {"ok": False, "error": "Task was not found or was ambiguous."}
+        update_data = {}
+        if "text" in arguments:
+            update_data["raw_text"] = arguments["text"]
+        if "priority" in arguments:
+            update_data["priority"] = arguments["priority"]
+        if "estimated_minutes" in arguments:
+            update_data["est_duration_min"] = arguments["estimated_minutes"]
+        if "category" in arguments:
+            update_data["category"] = arguments["category"]
+        updated = crud.update_item(db, item.id, ItemUpdate(**update_data), user_id=user_id)
+        return {"ok": True, "task": _item_payload(updated)}
+    if name == "what_should_i_do_now":
+        suggestion = crud.get_now_suggestion(db, user_id=user_id, now=local_now(db, user_id))
+        return {
+            "ok": True,
+            "reason": suggestion.reason,
+            "context_type": getattr(suggestion, "context_type", getattr(suggestion, "status", "idle")),
+            "task": _item_payload(suggestion.item) if suggestion.item else None,
+            "available_minutes": suggestion.available_minutes,
+        }
+    if name == "search_thoughts":
+        query = str(arguments.get("query", "")).strip()
+        rows = db.query(Item).filter(
+            Item.user_id == user_id,
+            Item.category.in_(["project_idea", "note", "random_thought", "question"]),
+            Item.raw_text.ilike(f"%{query}%")
+        ).limit(20).all()
+        return {"ok": True, "thoughts": [_item_payload(row) for row in rows]}
+    if name == "get_project_tasks":
+        query = str(arguments.get("project", "")).strip()
+        rows = db.query(Item).filter(
+            Item.user_id == user_id,
+            Item.category.in_(["task", "study", "project_idea"]),
+            Item.raw_text.ilike(f"%{query}%")
+        ).limit(20).all()
+        return {"ok": True, "tasks": [_item_payload(row) for row in rows]}
+    if name == "clear_schedule":
+        target = date.fromisoformat(arguments.get("date") or local_now(db, user_id).date().isoformat())
+        deleted = db.query(ScheduleSlot).filter(ScheduleSlot.user_id == user_id, ScheduleSlot.date == target).delete(synchronize_session=False)
+        db.commit()
+        return {"ok": True, "cleared_slots": deleted, "date": target.isoformat()}
     return {"ok": False, "error": "Unsupported assistant tool."}
 
 
@@ -186,11 +241,16 @@ def chat(message: str, db: Session, current_user: User) -> tuple[str, list[dict]
             types.FunctionDeclaration(name="get_preferences", description="Get authenticated user's scheduling preferences", parameters={"type": "object", "properties": {}}),
             types.FunctionDeclaration(name="find_free_slots", description="Find actual free schedule slots", parameters={"type": "object", "properties": {"date": {"type": "string"}, "minutes": {"type": "integer"}}}),
             types.FunctionDeclaration(name="explain_schedule", description="Get factual context for why a task has its scheduled slot", parameters={"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}),
+            types.FunctionDeclaration(name="what_should_i_do_now", description="Get intelligent deterministic recommendation on what task to work on right now", parameters={"type": "object", "properties": {}}),
             types.FunctionDeclaration(name="search_tasks", description="Find the user's tasks", parameters={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}),
+            types.FunctionDeclaration(name="search_thoughts", description="Search thoughts, ideas, questions, and notes", parameters={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}),
+            types.FunctionDeclaration(name="get_project_tasks", description="Get tasks associated with a project or topic", parameters={"type": "object", "properties": {"project": {"type": "string"}}, "required": ["project"]}),
             types.FunctionDeclaration(name="create_task", description="Create one task", parameters={"type": "object", "properties": {"text": {"type": "string"}, "category": {"type": "string"}, "priority": {"type": "integer"}, "estimated_minutes": {"type": "integer"}}, "required": ["text"]}),
+            types.FunctionDeclaration(name="update_task", description="Update a task's title, priority, estimated duration, or category", parameters={"type": "object", "properties": {"task": {"type": "string"}, "text": {"type": "string"}, "priority": {"type": "integer"}, "estimated_minutes": {"type": "integer"}, "category": {"type": "string"}}, "required": ["task"]}),
             types.FunctionDeclaration(name="complete_task", description="Complete one task", parameters={"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}),
             types.FunctionDeclaration(name="reschedule_task", description="Schedule one task in an exact free slot", parameters={"type": "object", "properties": {"task": {"type": "string"}, "date": {"type": "string"}, "start_time": {"type": "string"}}, "required": ["task", "date", "start_time"]}),
             types.FunctionDeclaration(name="delete_task", description="Delete one task; backend asks confirmation", parameters={"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}),
+            types.FunctionDeclaration(name="clear_schedule", description="Clear all scheduled slots for a given day; backend asks confirmation", parameters={"type": "object", "properties": {"date": {"type": "string"}}}),
         ]
         contents: Any = [ASSISTANT_PROMPT, f"User request: {message}"]
         actions: list[dict] = []

@@ -66,6 +66,11 @@ class DecomposeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
 
 
+class DecomposeApplyRequest(BaseModel):
+    project_title: Optional[str] = None
+    steps: list[DecompositionStep] = Field(min_length=1, max_length=50)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10000)
     confirmation_token: Optional[str] = None

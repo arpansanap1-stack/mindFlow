@@ -4,16 +4,18 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app import crud
 from app.auth import get_current_active_user
 from app.database import get_db
 from app.models import User
+from app.schemas import ItemCreate, ItemResponse
 from app.services.gemini.assistant import chat, confirm_action, local_now, user_timezone
 from app.services.gemini.client import GeminiUnavailable
 from app.services.gemini.decomposer import decompose
 from app.services.gemini.embeddings import backfill_missing_item_embeddings, search_items
 from app.services.gemini.insights import generate_insight
 from app.services.gemini.schemas import (
-    ChatRequest, ChatResponse, DecomposeRequest, DecompositionPreview,
+    ChatRequest, ChatResponse, DecomposeApplyRequest, DecomposeRequest, DecompositionPreview,
     InterpretationResponse, InterpretRequest, InsightsResponse, PendingAction,
     SearchRequest, SearchResult,
 )
@@ -43,6 +45,25 @@ def decompose_project(request: DecomposeRequest, current_user: User = Depends(ge
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI decomposition is temporarily unavailable. No tasks were created.")
 
 
+@router.post("/decompose/apply", response_model=list[ItemResponse], status_code=status.HTTP_201_CREATED)
+def apply_decomposition(request: DecomposeApplyRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    """Creates the approved decomposition steps directly into the user's backlog."""
+    created_items = []
+    for step in request.steps:
+        item, _ = crud.create_item_with_flag(
+            db,
+            ItemCreate(
+                raw_text=step.title,
+                category="study",
+                est_duration_min=step.estimated_minutes,
+                priority=3,
+            ),
+            user_id=current_user.id,
+        )
+        created_items.append(item)
+    return created_items
+
+
 @router.post("/chat", response_model=ChatResponse)
 def assistant_chat(request: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     if request.confirmation_token:
@@ -64,6 +85,7 @@ def semantic_search(request: SearchRequest, db: Session = Depends(get_db), curre
     return [SearchResult(item_id=item.id, raw_text=item.raw_text, category=item.category, score=round(score, 5)) for item, score in results]
 
 
+@router.get("/insights", response_model=InsightsResponse)
 @router.post("/insights", response_model=InsightsResponse)
 def insights(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     summary, metrics, source = generate_insight(db, current_user.id)

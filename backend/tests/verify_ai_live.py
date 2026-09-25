@@ -196,22 +196,46 @@ def run_verification():
         data = res.json()
         print(f"  POST /ai/interpret: source={data['source']}, intent={data['interpretation']['intent']}")
 
-        # 2. POST /ai/chat
+        # 2. POST /ai/decompose and POST /ai/decompose/apply
+        try:
+            res_dec = client.post("/ai/decompose", json={"text": "Build personal website"}, headers=headers)
+            print(f"  POST /ai/decompose: status={res_dec.status_code}")
+        except Exception as e:
+            print(f"  POST /ai/decompose: {e}")
+
+        apply_payload = {
+            "project_title": "Build personal website",
+            "steps": [
+                {"title": "Setup repository and Tailwind", "estimated_minutes": 30, "depends_on": [], "order": 1},
+                {"title": "Design hero and project section", "estimated_minutes": 60, "depends_on": [1], "order": 2}
+            ]
+        }
+        res_apply = client.post("/ai/decompose/apply", json=apply_payload, headers=headers)
+        assert res_apply.status_code == 201, f"/ai/decompose/apply failed: {res_apply.text}"
+        applied_items = res_apply.json()
+        assert len(applied_items) == 2, f"Expected 2 created items, got {len(applied_items)}"
+        print(f"  POST /ai/decompose/apply: successfully committed {len(applied_items)} subtasks into user backlog (HTTP 201)")
+
+        # 3. POST /ai/chat
         res = client.post("/ai/chat", json={"message": "What tasks do I have today?"}, headers=headers)
         assert res.status_code == 200, f"/ai/chat failed: {res.text}"
         print(f"  POST /ai/chat: reply={res.json()['message'][:60]}... source={res.json()['source']}")
 
-        # 3. POST /ai/search
+        # 4. POST /ai/search
         res = client.post("/ai/search", json={"query": "notes", "limit": 5}, headers=headers)
         assert res.status_code == 200, f"/ai/search failed: {res.text}"
         print(f"  POST /ai/search: results count={len(res.json())}")
 
-        # 4. POST /ai/insights
-        res = client.post("/ai/insights", headers=headers)
-        assert res.status_code == 200, f"/ai/insights failed: {res.text}"
-        print(f"  POST /ai/insights: completion_rate={res.json()['metrics']['completion_rate']}% source={res.json()['source']}")
+        # 5. GET and POST /ai/insights
+        res_get = client.get("/ai/insights", headers=headers)
+        assert res_get.status_code == 200, f"GET /ai/insights failed: {res_get.text}"
+        print(f"  GET /ai/insights: completion_rate={res_get.json()['metrics']['completion_rate']} source={res_get.json()['source']}")
 
-        print("  [OK] All AI API endpoints verified HTTP 200 with authenticated requests")
+        res_post = client.post("/ai/insights", headers=headers)
+        assert res_post.status_code == 200, f"POST /ai/insights failed: {res_post.text}"
+        print(f"  POST /ai/insights: completion_rate={res_post.json()['metrics']['completion_rate']} source={res_post.json()['source']}")
+
+        print("  [OK] All requested AI API endpoints verified HTTP 200/201 with authenticated requests")
     finally:
         db.close()
 
