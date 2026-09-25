@@ -49,7 +49,7 @@ def create_item(
                 local_now(db, current_user.id),
             )
             item_in = item_in.model_copy(update={
-                "category": parsed.category,
+                "category": parsed.category if parsed.category != "random_thought" else None,
                 "priority": item_in.priority if item_in.priority is not None else {"low": 2, "medium": 3, "high": 4, "urgent": 5}[parsed.priority],
                 "est_duration_min": item_in.est_duration_min if item_in.est_duration_min is not None else parsed.estimated_minutes,
                 "deadline": item_in.deadline if item_in.deadline is not None else parsed.deadline,
