@@ -88,7 +88,7 @@ def extract_deadline_and_date(text: str, now: Optional[datetime] = None) -> Tupl
     Handles 'by Friday 5pm', 'due tomorrow', 'by Oct 15', 'before 3pm', etc.
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
 
     # Patterns indicating deadlines or dates
     date_intro_patterns = [
@@ -100,9 +100,11 @@ def extract_deadline_and_date(text: str, now: Optional[datetime] = None) -> Tupl
 
     settings = {
         "PREFER_DATES_FROM": "future",
-        "RELATIVE_BASE": now.replace(tzinfo=None),
+        "RELATIVE_BASE": now.replace(tzinfo=None) if now.tzinfo else now,
         "RETURN_AS_TIMEZONE_AWARE": False,
     }
+
+    ref_naive = now.replace(tzinfo=None) if now.tzinfo else now
 
     for pat in date_intro_patterns:
         match = re.search(pat, text, re.I)
@@ -116,9 +118,15 @@ def extract_deadline_and_date(text: str, now: Optional[datetime] = None) -> Tupl
                 # If parsed date lacks time and matched "by ...", default to 17:00 (5pm end of day)
                 if parsed.hour == 0 and parsed.minute == 0 and "12am" not in date_str.lower() and "midnight" not in date_str.lower():
                     parsed = parsed.replace(hour=17, minute=0, second=0)
+
+                # If time was parsed for today but is already in the past, roll forward to tomorrow
+                if parsed <= ref_naive and parsed.date() == ref_naive.date():
+                    parsed = parsed + timedelta(days=1)
+
                 return parsed, match.group(0)
 
     return None, None
+
 
 
 def extract_topic_tag(text: str) -> Optional[str]:

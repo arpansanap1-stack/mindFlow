@@ -9,38 +9,32 @@ import {
   Edit3,
   MoreVertical,
   Check,
+  Timer,
 } from 'lucide-react';
 import Badge from './ui/Badge';
 import DropdownMenu from './ui/DropdownMenu';
+import { formatDeadline12 } from '../utils/timeFormat';
 
 export default function ItemCard({
   item,
   onComplete,
   onEdit,
   onDelete,
+  onStartTimer,
 }) {
   const isDone = item.status === 'done';
 
-  const formatDeadline = (iso) => {
-    if (!iso) return null;
-    try {
-      const d = new Date(iso);
-      const isToday = new Date().toDateString() === d.toDateString();
-      if (isToday) {
-        return `Today ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      }
-      return d.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return iso;
-    }
-  };
 
   const menuItems = [
+    ...(onStartTimer && !isDone
+      ? [
+          {
+            label: 'Start focus timer',
+            icon: Timer,
+            onClick: () => onStartTimer(item),
+          },
+        ]
+      : []),
     {
       label: 'Edit details',
       icon: Edit3,
@@ -58,6 +52,7 @@ export default function ItemCard({
       onClick: () => onDelete(item.id),
     },
   ];
+
 
   return (
     <div
@@ -120,7 +115,7 @@ export default function ItemCard({
               {item.deadline && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-[#7d3b2b]/10 text-[#7d3b2b] dark:text-[#d48372]">
                   <Calendar className="w-3 h-3" />
-                  {formatDeadline(item.deadline)}
+                  {formatDeadline12(item.deadline)}
                 </span>
               )}
 
@@ -142,6 +137,16 @@ export default function ItemCard({
 
         {/* Right: Contextual menu */}
         <div className="flex items-center gap-1">
+          {onStartTimer && !isDone && (
+            <button
+              onClick={() => onStartTimer(item)}
+              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+              title="Start Focus Timer"
+              aria-label="Start Focus Timer"
+            >
+              <Timer className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => onEdit(item)}
             className="p-1 rounded-lg text-[#6b6760] hover:text-[#1f1e1d] dark:hover:text-[#ebe8e2] hover:bg-[#f4f2ee] dark:hover:bg-[#282623] transition-colors cursor-pointer"
@@ -150,6 +155,7 @@ export default function ItemCard({
           >
             <Edit3 className="w-4 h-4" />
           </button>
+
           <DropdownMenu
             trigger={
               <button

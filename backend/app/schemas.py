@@ -13,6 +13,7 @@ class ItemCreate(BaseModel):
     est_duration_min: Optional[int] = Field(None, ge=1, description="Estimated duration in minutes")
     deadline: Optional[dt.datetime] = Field(None, description="Parsed or set deadline")
     topic_tag: Optional[str] = Field(None, max_length=100, description="Topic or context tag")
+    client_time: Optional[dt.datetime] = Field(None, description="Client local timestamp at submission")
 
 
 class ItemUpdate(BaseModel):
@@ -138,6 +139,7 @@ class ScheduleSlotResponse(BaseModel):
 
 class ScheduleRunRequest(BaseModel):
     date: Optional[dt.date] = Field(None, description="Date to schedule for (defaults to today)")
+    current_time: Optional[dt.datetime] = Field(None, description="Client local timestamp at request")
 
 
 class ScheduleRunResponse(BaseModel):

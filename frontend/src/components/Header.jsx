@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Compass,
   Inbox,
@@ -9,6 +9,8 @@ import {
   KeyRound,
   User,
   Leaf,
+  Clock,
+  Timer,
 } from 'lucide-react';
 
 export default function Header({
@@ -18,8 +20,25 @@ export default function Header({
   currentUser,
   onLogout,
   onChangePassword,
+  onOpenTimer,
 }) {
   const isAdmin = currentUser?.role === 'ADMIN';
+
+  const [currentTimeStr, setCurrentTimeStr] = useState('');
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const period = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      setCurrentTimeStr(`${hours}:${minutes} ${period}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
 
   return (
     <header className="border-b border-[#e2ded5] dark:border-[#383530] bg-[#fbfaf8]/90 dark:bg-[#1f1e1d]/90 backdrop-blur-md sticky top-0 z-40 transition-colors">
@@ -112,8 +131,28 @@ export default function Header({
           )}
         </nav>
 
-        {/* Right: User identity & Connection Status */}
+        {/* Right: Clock, Timer, User identity & Connection Status */}
         <div className="flex items-center gap-2">
+          {/* Live 12-Hour Clock */}
+          {currentTimeStr && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold text-[#2d553c] dark:text-[#5b8a6c] bg-[#2d553c]/5 border border-[#2d553c]/20">
+              <Clock className="w-3.5 h-3.5 text-[#2d553c] dark:text-[#5b8a6c]" />
+              <span>{currentTimeStr}</span>
+            </div>
+          )}
+
+          {/* Focus Timer Trigger Button */}
+          {onOpenTimer && (
+            <button
+              onClick={onOpenTimer}
+              title="Open Focus Timer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer"
+            >
+              <Timer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Timer</span>
+            </button>
+          )}
+
           {/* Connection badge */}
           <div
             className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border ${
@@ -123,6 +162,7 @@ export default function Header({
             }`}
             title={isOnline ? 'Connected to MindFlow backend' : 'Backend offline or unreachable'}
           >
+
             <span
               className={`w-1.5 h-1.5 rounded-full ${
                 isOnline ? 'bg-[#2d553c] dark:bg-[#5b8a6c]' : 'bg-[#b8860b]'

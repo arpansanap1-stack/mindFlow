@@ -77,12 +77,15 @@ def compute_urgency_score(
     item: InboxItem,
     target_date: date,
     prefs: SchedulerPrefs,
-    now: datetime,
+    now: Optional[datetime] = None,
 ) -> float:
     """
     Compute urgency_score = w1*deadline_proximity + w2*priority + w3*days_in_inbox (SPEC 1.6)
     Weights default to 0.5 / 0.3 / 0.2
     """
+    if now is None:
+        now = datetime.now()
+
     w_deadline = prefs.weights.get("deadline", 0.5)
     w_priority = prefs.weights.get("priority", 0.3)
     w_inbox = prefs.weights.get("days_in_inbox", 0.2)
@@ -145,13 +148,57 @@ def schedule_day(
     Takes (target_date, inbox_items, routine_blocks, existing_slots, prefs)
     and returns proposed slots and unplaceable items.
     """
-    if now is None:
-        now = datetime.now(timezone.utc)
+    # If explicit 'now' is provided and scheduling for a past date, reject placement
+    if now is not None:
+        now_date = now.date() if isinstance(now, datetime) else date.today()
+        if target_date < now_date:
+            return ScheduleResult(
+                scheduled_slots=[],
+                unplaceable_item_ids=[item.id for item in inbox_items],
+                explanations={
+                    item.id: f"Cannot schedule items on a past date ({target_date})."
+                    for item in inbox_items
+                },
+            )
 
     # 1. Base active day window (e.g. 08:00 to 22:00)
     day_start_min = time_to_minutes(prefs.day_start)
     day_end_min = time_to_minutes(prefs.day_end)
-    free_intervals: List[Tuple[int, int]] = [(day_start_min, day_end_min)]
+
+    # If scheduling for today with current time known, do not schedule slots in the past
+    if now is not None:
+        now_date = now.date() if isinstance(now, datetime) else date.today()
+        if target_date == now_date:
+            now_min = now.hour * 60 + now.minute
+            # Round up to nearest 5 minutes
+            rounded_now = ((now_min + 4) // 5) * 5
+
+            if rounded_now >= 1435:
+                # Past 23:55, day has ended
+                return ScheduleResult(
+                    scheduled_slots=[],
+                    unplaceable_item_ids=[item.id for item in inbox_items],
+                    explanations={
+                        item.id: "Day active hours have ended. Please schedule for tomorrow."
+                        for item in inbox_items
+                    },
+                )
+            elif rounded_now >= day_end_min:
+                # Active late evening; allow window up to midnight
+                effective_start = rounded_now
+                effective_end = min(1440, rounded_now + 120)
+            else:
+                effective_start = max(day_start_min, rounded_now)
+                effective_end = day_end_min
+        else:
+            effective_start = day_start_min
+            effective_end = day_end_min
+    else:
+        effective_start = day_start_min
+        effective_end = day_end_min
+
+    free_intervals: List[Tuple[int, int]] = [(effective_start, effective_end)]
+
 
     # Collect blocked intervals for target_date
     blocked_intervals: List[Tuple[int, int]] = []
@@ -255,7 +302,9 @@ def schedule_day(
             auto_generated=True,
         )
         scheduled_proposals.append(proposal)
-        explanations[item.id] = f"Scheduled at {proposal.start_time.strftime('%H:%M')} (score: {score:.2f})"
+        time_12 = proposal.start_time.strftime("%I:%M %p").lstrip("0")
+        explanations[item.id] = f"Scheduled at {time_12} (score: {score:.2f})"
+
 
         # Break constraint (SPEC 1.6):
         # "Never schedule two duration >45min deep-work items back-to-back without inserting break_duration_pref minutes"

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
+import { formatDeadline12 } from '../utils/timeFormat';
+
 
 export default function ItemEditModal({ item, isOpen, onClose, onSave }) {
   const [rawText, setRawText] = useState('');
@@ -155,7 +157,13 @@ export default function ItemEditModal({ item, isOpen, onClose, onSave }) {
               onChange={(e) => setDeadline(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
             />
+            {deadline && (
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-1">
+                Preview: {formatDeadline12(deadline)}
+              </p>
+            )}
           </div>
+
 
           <div>
             <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">

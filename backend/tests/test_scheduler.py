@@ -227,3 +227,32 @@ def test_reschedule_job_evaluation():
     assert decision.slots_to_delete == [101]
     assert decision.items_to_revert == [1]
 
+
+def test_schedule_past_time_prevention():
+    # If scheduling today at 14:32 (2:32 PM), slots must start at or after 14:35 (rounded up to nearest 5 min)
+    target_date = date(2026, 9, 24)
+    mid_day_now = datetime(2026, 9, 24, 14, 32, 0)
+    prefs = SchedulerPrefs(
+        day_start=time(8, 0),
+        day_end=time(18, 0),
+    )
+
+    items = [
+        InboxItem(id=1, raw_text="Afternoon task", priority=4, est_duration_min=45),
+    ]
+
+    result = schedule_day(target_date, items, [], [], prefs, mid_day_now)
+
+    assert len(result.scheduled_slots) == 1
+    slot = result.scheduled_slots[0]
+    # Day start was 08:00, but now is 14:32, so slot cannot start before 14:35
+    assert slot.start_time >= time(14, 35)
+
+    # Test past date
+    past_date = date(2026, 9, 23)
+    past_result = schedule_day(past_date, items, [], [], prefs, mid_day_now)
+    assert len(past_result.scheduled_slots) == 0
+    assert 1 in past_result.unplaceable_item_ids
+    assert "Cannot schedule items on a past date" in past_result.explanations[1]
+
+

@@ -32,10 +32,15 @@ export async function createItem(rawText, extraFields = {}) {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
     },
-    body: JSON.stringify({ raw_text: rawText, ...extraFields }),
+    body: JSON.stringify({
+      raw_text: rawText,
+      client_time: new Date().toISOString(),
+      ...extraFields,
+    }),
   });
   return handleResponse(res, 'Failed to create item');
 }
+
 
 export async function updateItem(id, updates) {
   const res = await fetch(`${API_BASE}/items/${id}`, {

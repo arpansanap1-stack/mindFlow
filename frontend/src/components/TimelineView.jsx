@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Circle,
   CalendarCheck,
+  Timer,
 } from 'lucide-react';
 import { fetchSchedule, runScheduler } from '../api/schedule';
 import { fetchRoutineBlocks } from '../api/routine';
@@ -17,11 +18,13 @@ import Button from './ui/Button';
 import Badge from './ui/Badge';
 import Skeleton from './ui/Skeleton';
 import EmptyState from './ui/EmptyState';
+import { getLocalDateStr, formatTimeRange12 } from '../utils/timeFormat';
 
-export default function TimelineView({ onCompleteItem, onToast }) {
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+export default function TimelineView({ onCompleteItem, onToast, onStartTimer }) {
+  const getTodayStr = () => getLocalDateStr();
 
   const [selectedDate, setSelectedDate] = useState(getTodayStr);
+
   const [slots, setSlots] = useState([]);
   const [routineBlocks, setRoutineBlocks] = useState([]);
   const [unplaceableItems, setUnplaceableItems] = useState([]);
@@ -57,9 +60,10 @@ export default function TimelineView({ onCompleteItem, onToast }) {
   const handleDateChange = (daysDelta) => {
     const current = new Date(selectedDate + 'T00:00:00');
     current.setDate(current.getDate() + daysDelta);
-    const newDateStr = current.toISOString().split('T')[0];
+    const newDateStr = getLocalDateStr(current);
     setSelectedDate(newDateStr);
   };
+
 
   const handleRunScheduler = async () => {
     setIsScheduling(true);
@@ -277,8 +281,8 @@ export default function TimelineView({ onCompleteItem, onToast }) {
                   key={entry.id}
                   className="flex items-center gap-3 bg-[#f4f2ee]/60 dark:bg-[#282623]/60 border border-[#e2ded5] dark:border-[#383530] rounded-xl p-3 text-xs text-[#6b6760] dark:text-[#9e998f]"
                 >
-                  <div className="w-24 shrink-0 font-mono font-medium text-[11px]">
-                    {entry.startTime} – {entry.endTime}
+                  <div className="min-w-[130px] shrink-0 font-mono font-medium text-[11px]">
+                    {formatTimeRange12(entry.startTime, entry.endTime)}
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="p-1 rounded bg-[#e2ded5]/60 dark:bg-[#383530] text-[#6b6760] dark:text-[#9e998f]">
@@ -308,8 +312,8 @@ export default function TimelineView({ onCompleteItem, onToast }) {
                   }`}
                 >
                   <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-                    <div className="w-24 shrink-0 font-mono font-semibold text-[#2d553c] dark:text-[#5b8a6c] text-xs">
-                      {entry.startTime} – {entry.endTime}
+                    <div className="min-w-[130px] shrink-0 font-mono font-semibold text-[#2d553c] dark:text-[#5b8a6c] text-xs">
+                      {formatTimeRange12(entry.startTime, entry.endTime)}
                     </div>
 
                     <button
@@ -356,6 +360,17 @@ export default function TimelineView({ onCompleteItem, onToast }) {
                       </div>
                     </div>
                   </div>
+
+                  {onStartTimer && !isDone && item && (
+                    <button
+                      onClick={() => onStartTimer(item)}
+                      className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer shrink-0"
+                      title="Start Focus Timer"
+                      aria-label="Start Focus Timer"
+                    >
+                      <Timer className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             }
@@ -366,8 +381,8 @@ export default function TimelineView({ onCompleteItem, onToast }) {
                   key={entry.id}
                   className="flex items-center gap-3 px-3 py-1.5 border border-dashed border-[#e2ded5] dark:border-[#383530] rounded-lg text-xs text-[#9e998f]"
                 >
-                  <div className="w-24 shrink-0 font-mono text-[11px] text-[#9e998f]">
-                    {entry.startTime} – {entry.endTime}
+                  <div className="min-w-[130px] shrink-0 font-mono text-[11px] text-[#9e998f]">
+                    {formatTimeRange12(entry.startTime, entry.endTime)}
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] text-[#6b6760] dark:text-[#9e998f]">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#2d553c]" />
@@ -376,6 +391,7 @@ export default function TimelineView({ onCompleteItem, onToast }) {
                 </div>
               );
             }
+
 
             return null;
           })

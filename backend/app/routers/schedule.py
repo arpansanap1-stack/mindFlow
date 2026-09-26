@@ -43,4 +43,6 @@ def run_scheduler(
 ):
     """Trigger the greedy scheduler for a given date for the authenticated user."""
     target_date = (request.date if request and request.date else _user_today(db, current_user.id))
-    return crud.run_scheduler_for_date(db=db, user_id=current_user.id, target_date=target_date)
+    now = request.current_time if request and request.current_time else None
+    return crud.run_scheduler_for_date(db=db, user_id=current_user.id, target_date=target_date, now=now)
+

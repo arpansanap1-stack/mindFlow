@@ -12,6 +12,7 @@ import MobileNav from './components/MobileNav';
 import LoginPage from './components/LoginPage';
 import AdminDashboard from './components/AdminDashboard';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import FocusTimer from './components/FocusTimer';
 import {
   fetchItems,
   createItem,
@@ -42,6 +43,16 @@ export default function App() {
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+
+  // Focus Timer state
+  const [isTimerOpen, setIsTimerOpen] = useState(false);
+  const [activeTimerTask, setActiveTimerTask] = useState(null);
+
+  const handleStartTimer = (task = null) => {
+    setActiveTimerTask(task);
+    setIsTimerOpen(true);
+  };
+
 
   const triggerSuggestionRefresh = () => setSuggestionRefreshKey((k) => k + 1);
 
@@ -287,6 +298,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onChangePassword={() => setIsChangePasswordOpen(true)}
+        onOpenTimer={() => handleStartTimer(null)}
       />
 
       {/* Main Content Area */}
@@ -308,6 +320,7 @@ export default function App() {
                   onToast={showToast}
                   suggestionRefreshKey={suggestionRefreshKey}
                   onNavigateTab={(tab) => setActiveTab(tab)}
+                  onStartTimer={handleStartTimer}
                 />
               </section>
             )}
@@ -328,6 +341,7 @@ export default function App() {
                     onCompleteItem={handlePromptComplete}
                     onEditItem={(item) => setEditingItem(item)}
                     onDeleteItem={handleDeleteItem}
+                    onStartTimer={handleStartTimer}
                   />
                 </section>
               </div>
@@ -335,12 +349,19 @@ export default function App() {
 
             {/* Day Plan (Schedule) Tab */}
             {activeTab === 'schedule' && (
-              <section aria-label="Day Schedule Area">
-                <TimelineView
-                  onCompleteItem={handlePromptComplete}
-                  onToast={showToast}
-                />
-              </section>
+              <div className="space-y-6">
+                <section aria-label="Quick Capture Area">
+                  <CaptureBar onCapture={handleCapture} isLoading={isLoading} />
+                </section>
+
+                <section aria-label="Day Schedule Area">
+                  <TimelineView
+                    onCompleteItem={handlePromptComplete}
+                    onToast={showToast}
+                    onStartTimer={handleStartTimer}
+                  />
+                </section>
+              </div>
             )}
 
             {/* Routine Calibration Tab */}
@@ -352,6 +373,7 @@ export default function App() {
           </>
         )}
       </main>
+
 
       {/* Responsive Mobile Bottom Navigation */}
       <MobileNav
@@ -414,8 +436,22 @@ export default function App() {
         }}
       />
 
+      {/* Focus Timer Modal & Minimized Floating Pill */}
+      <FocusTimer
+        isOpen={isTimerOpen}
+        onClose={() => setIsTimerOpen(false)}
+        activeTask={activeTimerTask}
+        onClearTask={() => setActiveTimerTask(null)}
+        onCompleteTask={(taskId, feedbackData) => {
+          handleConfirmComplete(taskId, feedbackData);
+          setIsTimerOpen(false);
+          setActiveTimerTask(null);
+        }}
+      />
+
       {/* Toast notification feedback */}
       {toast && (
+
         <div className="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-150">
           <div
             className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg shadow-sm border text-xs font-medium ${

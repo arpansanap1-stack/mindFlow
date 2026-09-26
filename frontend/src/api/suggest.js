@@ -15,9 +15,9 @@ async function handleResponse(res, fallbackMessage) {
 }
 
 export async function fetchNowSuggestion(isoNow = null) {
-  const url = isoNow
-    ? `${API_BASE}/suggest/now?now=${encodeURIComponent(isoNow)}`
-    : `${API_BASE}/suggest/now`;
+  const targetTime = isoNow || new Date().toISOString();
+  const url = `${API_BASE}/suggest/now?now=${encodeURIComponent(targetTime)}`;
+
   const res = await fetch(url, { headers: getAuthHeaders() });
   return handleResponse(res, 'Failed to fetch suggestion');
 }

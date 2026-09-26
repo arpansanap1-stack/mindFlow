@@ -170,7 +170,8 @@ def create_item_with_flag(
     allow_sync_llm: bool = False,
 ) -> Tuple[Item, bool]:
     # Run swappable classification pipeline
-    classified = classify_text(item_in.raw_text, allow_llm=allow_sync_llm)
+    classified = classify_text(item_in.raw_text, now=item_in.client_time, allow_llm=allow_sync_llm)
+
 
     # User explicit overrides take precedence; otherwise use classified values
     category = item_in.category if item_in.category is not None else classified.category
@@ -537,7 +538,13 @@ def run_reschedule_job(db: Session, user_id: int = 1, current_date: Optional[dat
     return len(decision.items_to_revert)
 
 
-def run_scheduler_for_date(db: Session, user_id: int = 1, target_date: Optional[date] = None) -> ScheduleRunResponse:
+def run_scheduler_for_date(
+    db: Session,
+    user_id: int = 1,
+    target_date: Optional[date] = None,
+    now: Optional[datetime] = None,
+) -> ScheduleRunResponse:
+
     """
     Orchestrate scheduler for target_date scoped to user_id:
     1. Reschedule past undone items.
@@ -625,7 +632,9 @@ def run_scheduler_for_date(db: Session, user_id: int = 1, target_date: Optional[
         routine_blocks=routine_items,
         existing_slots=existing_slots,
         prefs=prefs,
+        now=now,
     )
+
 
     # 5. Save proposed slots & update items
     created_slots: List[ScheduleSlot] = []
@@ -769,7 +778,8 @@ def get_now_suggestion(
     now: Optional[datetime] = None,
 ) -> NowSuggestionResponse:
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
+
 
     target_date = now.date()
 

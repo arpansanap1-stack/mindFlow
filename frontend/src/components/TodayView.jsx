@@ -14,6 +14,7 @@ import {
   Coffee,
   Moon,
   Compass,
+  Timer,
 } from 'lucide-react';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
@@ -22,6 +23,11 @@ import { fetchNowSuggestion, recordSuggestionAction } from '../api/suggest';
 import { fetchSchedule, runScheduler } from '../api/schedule';
 import { fetchRoutineBlocks } from '../api/routine';
 import CaptureBar from './CaptureBar';
+import {
+  getLocalDateStr,
+  formatTimeRange12,
+  formatDeadline12,
+} from '../utils/timeFormat';
 
 function ContextIconBadge({ contextType }) {
   let Icon = Compass;
@@ -40,13 +46,16 @@ export default function TodayView({
   onToast,
   suggestionRefreshKey,
   onNavigateTab,
+  onStartTimer,
 }) {
+
   const [suggestion, setSuggestion] = useState(null);
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
 
   // Today's schedule data
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateStr(), []);
+
   const [todaySlots, setTodaySlots] = useState([]);
   const [todayRoutine, setTodayRoutine] = useState([]);
   const [isScheduleLoading, setIsScheduleLoading] = useState(true);
@@ -124,10 +133,15 @@ export default function TodayView({
       await recordSuggestionAction(suggestion.item.id, actionType);
 
       if (actionType === 'start') {
-        const estMinutes = suggestion.item.est_duration_min || 25;
-        handleStartFocus(estMinutes);
+        if (onStartTimer) {
+          onStartTimer(suggestion.item);
+        } else {
+          const estMinutes = suggestion.item.est_duration_min || 25;
+          handleStartFocus(estMinutes);
+        }
         onToast?.(`Focus started for "${suggestion.item.raw_text}"`);
       } else if (actionType === 'done') {
+
         onCompleteItem(suggestion.item);
         setIsFocusMode(false);
         setIsTimerRunning(false);
@@ -371,11 +385,10 @@ export default function TodayView({
                   {suggestion.item.deadline && (
                     <span className="flex items-center gap-1 text-[#7d3b2b] dark:text-[#d48372]">
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>
-                        Due {new Date(suggestion.item.deadline).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                      </span>
+                      <span>{formatDeadline12(suggestion.item.deadline)}</span>
                     </span>
                   )}
+
                   {suggestion.explanation && (
                     <span className="text-[11px] text-[#6b6760] dark:text-[#9e998f] italic">
                       "{suggestion.explanation}"
@@ -468,8 +481,8 @@ export default function TodayView({
                     key={entry.id}
                     className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-[#f4f2ee]/60 dark:bg-[#282623]/60 border border-[#e2ded5] dark:border-[#383530] text-xs text-[#6b6760] dark:text-[#9e998f]"
                   >
-                    <span className="w-20 font-mono font-medium text-[11px] shrink-0">
-                      {entry.startTime} – {entry.endTime}
+                    <span className="min-w-[130px] font-mono font-medium text-[11px] shrink-0">
+                      {formatTimeRange12(entry.startTime, entry.endTime)}
                     </span>
                     <span className="p-1 rounded bg-[#e2ded5]/60 dark:bg-[#383530] text-[#6b6760] dark:text-[#9e998f]">
                       <Lock className="w-3 h-3" />
@@ -497,8 +510,8 @@ export default function TodayView({
                     }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="w-20 font-mono font-medium text-[11px] text-[#2d553c] dark:text-[#5b8a6c] shrink-0">
-                        {entry.startTime} – {entry.endTime}
+                      <span className="min-w-[130px] font-mono font-medium text-[11px] text-[#2d553c] dark:text-[#5b8a6c] shrink-0">
+                        {formatTimeRange12(entry.startTime, entry.endTime)}
                       </span>
                       <button
                         onClick={() => item && onCompleteItem(item)}
@@ -518,6 +531,17 @@ export default function TodayView({
                         {item ? item.raw_text : 'Scheduled task'}
                       </span>
                     </div>
+
+                    {onStartTimer && !isDone && item && (
+                      <button
+                        onClick={() => onStartTimer(item)}
+                        className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer shrink-0"
+                        title="Start Focus Timer"
+                        aria-label="Start Focus Timer"
+                      >
+                        <Timer className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 );
               }
@@ -528,8 +552,8 @@ export default function TodayView({
                     key={entry.startTime}
                     className="flex items-center gap-3 px-3.5 py-1.5 rounded-lg border border-dashed border-[#e2ded5] dark:border-[#383530] text-[11px] text-[#9e998f]"
                   >
-                    <span className="w-20 font-mono text-[11px] shrink-0">
-                      {entry.startTime} – {entry.endTime}
+                    <span className="min-w-[130px] font-mono text-[11px] shrink-0">
+                      {formatTimeRange12(entry.startTime, entry.endTime)}
                     </span>
                     <span className="text-[#6b6760] dark:text-[#9e998f]">
                       Open focus slot ({entry.durationMin}m free)
@@ -537,6 +561,7 @@ export default function TodayView({
                   </div>
                 );
               }
+
 
               return null;
             })}

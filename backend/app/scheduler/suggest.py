@@ -38,6 +38,11 @@ class NowSuggestion:
     effective_duration_min: Optional[int] = None
 
 
+def _fmt12(t: time) -> str:
+    """Format time in 12-hour AM/PM format (e.g. '9:00 AM', '2:30 PM')."""
+    return t.strftime("%I:%M %p").lstrip("0")
+
+
 def get_effective_duration(item: InboxItem, prefs: SchedulerPrefs) -> int:
     """Calculate effective duration considering learned multipliers."""
     cat = (item.category or "task").lower()
@@ -90,7 +95,7 @@ def evaluate_now_suggestion(
                 return NowSuggestion(
                     context_type="routine",
                     current_time=now,
-                    reason=f"Routine block '{label}' in progress until {block.end_time.strftime('%H:%M')} ({rem}m remaining). Rest, recharge, or focus on this commitment.",
+                    reason=f"Routine block '{label}' in progress until {_fmt12(block.end_time)} ({rem}m remaining). Rest, recharge, or focus on this commitment.",
                     routine_block=block,
                     free_minutes_remaining=rem,
                 )
@@ -106,7 +111,7 @@ def evaluate_now_suggestion(
                 return NowSuggestion(
                     context_type="scheduled_slot",
                     current_time=now,
-                    reason=f"Scheduled slot in progress until {slot.end_time.strftime('%H:%M')} ({rem}m remaining). Focus on '{item_title}'.",
+                    reason=f"Scheduled slot in progress until {_fmt12(slot.end_time)} ({rem}m remaining). Focus on '{item_title}'.",
                     item=slot.item,
                     slot=slot,
                     free_minutes_remaining=rem,
@@ -145,8 +150,9 @@ def evaluate_now_suggestion(
         if d_start <= now_min < d_end:
             is_deep_work = True
             deep_remaining = min(gap_minutes, d_end - now_min)
-            deep_window_str = f"{minutes_to_time(d_start).strftime('%H:%M')}-{minutes_to_time(d_end).strftime('%H:%M')}"
+            deep_window_str = f"{_fmt12(minutes_to_time(d_start))} - {_fmt12(minutes_to_time(d_end))}"
             break
+
 
     # 6. Filter candidate items (status == 'inbox')
     candidates = [it for it in inbox_items if getattr(it, "status", "inbox") == "inbox"]

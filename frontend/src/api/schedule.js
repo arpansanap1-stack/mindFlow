@@ -21,7 +21,11 @@ export async function fetchSchedule(dateStr = null) {
 }
 
 export async function runScheduler(dateStr = null) {
-  const payload = dateStr ? { date: dateStr } : {};
+  const payload = {
+    current_time: new Date().toISOString(),
+    ...(dateStr ? { date: dateStr } : {}),
+  };
+
   const res = await fetch(`${API_BASE}/schedule/run`, {
     method: 'POST',
     headers: {

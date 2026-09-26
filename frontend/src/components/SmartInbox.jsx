@@ -20,7 +20,9 @@ export default function SmartInbox({
   onDeleteItem,
   statusFilter,
   setStatusFilter,
+  onStartTimer,
 }) {
+
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -196,7 +198,9 @@ export default function SmartInbox({
               onComplete={onCompleteItem}
               onEdit={onEditItem}
               onDelete={onDeleteItem}
+              onStartTimer={onStartTimer}
             />
+
           ))
         ) : (
           <EmptyState

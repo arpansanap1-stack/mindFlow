@@ -27,6 +27,13 @@ import Button from './ui/Button';
 import Modal from './ui/Modal';
 import Skeleton from './ui/Skeleton';
 import EmptyState from './ui/EmptyState';
+import TimePicker12 from './TimePicker12';
+import {
+  formatTimeRange12,
+  formatDeepHoursForDisplay,
+  parseDeepHoursInput,
+} from '../utils/timeFormat';
+
 
 const DAYS = [
   { id: 0, name: 'Monday', short: 'Mon' },
@@ -71,9 +78,10 @@ export default function RoutineProfile({ onToast }) {
       setBlocks(blocksData);
       if (prefsData) {
         setDeepHoursInput(
-          (prefsData.preferred_deep_hours || ['09:00-11:00']).join(', ')
+          formatDeepHoursForDisplay(prefsData.preferred_deep_hours || ['09:00-11:00'])
         );
         setBreakDuration(prefsData.break_duration_pref ?? 10);
+
         setMultipliers(prefsData.category_duration_multiplier || {});
       }
       if (statsData) {
@@ -163,12 +171,10 @@ export default function RoutineProfile({ onToast }) {
     e.preventDefault();
     setIsSavingPrefs(true);
     try {
-      const hoursList = deepHoursInput
-        .split(',')
-        .map((h) => h.trim())
-        .filter(Boolean);
+      const hoursList = parseDeepHoursInput(deepHoursInput);
 
       await updateUserPrefs({
+
         preferred_deep_hours: hoursList,
         break_duration_pref: Number(breakDuration),
       });
@@ -294,8 +300,9 @@ export default function RoutineProfile({ onToast }) {
                       )}
                     </div>
                     <p className="text-xs text-[#6b6760] dark:text-[#9e998f] font-mono mt-0.5">
-                      {block.start_time.slice(0, 5)} – {block.end_time.slice(0, 5)}
+                      {formatTimeRange12(block.start_time, block.end_time)}
                     </p>
+
                   </div>
                 </div>
 
@@ -542,33 +549,19 @@ export default function RoutineProfile({ onToast }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
-                Start Time
-              </label>
-              <input
-                type="time"
-                required
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-medium text-[#1f1e1d] dark:text-[#ebe8e2] mb-1">
-                End Time
-              </label>
-              <input
-                type="time"
-                required
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#1f1e1d] border border-[#e2ded5] dark:border-[#383530] rounded-lg text-[#1f1e1d] dark:text-[#ebe8e2] focus:outline-none focus:ring-1 focus:ring-[#2d553c]"
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TimePicker12
+              label="Start Time"
+              value={startTime}
+              onChange={setStartTime}
+            />
+            <TimePicker12
+              label="End Time"
+              value={endTime}
+              onChange={setEndTime}
+            />
           </div>
+
 
           <div className="flex items-center gap-2 pt-1">
             <input
